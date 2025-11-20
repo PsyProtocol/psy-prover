@@ -53,15 +53,14 @@ use crate::{
     common::{
         clock::SlotTimer,
         slot::{LocalClock, Slot},
+        traits::realm::CoordinatorClient,
         verifier::get_cached_generic_verifier,
     },
-    common::traits::realm::CoordinatorClient,
-    realm::client::ConcreteCoordinatorClient,
     realm::{
+        backup::{create_realm_checkpoint_backup, create_realm_pending_users_backup, create_realm_state_backup},
+        client::ConcreteCoordinatorClient,
         config::RealmNodeConfig,
-        state::{
-            processor::{RealmConfig, RealmConsumptionState, RealmProcessorContext},
-        },
+        state::processor::{RealmConfig, RealmConsumptionState, RealmProcessorContext},
         C, D, F,
     },
 };
@@ -227,6 +226,349 @@ impl RealmProcessor {
                 self.is_state_normal.store(false, Ordering::Relaxed);
             }
         }
+
+        // recover from backup if available
+        self.recover_from_backup().await?;
+
+        Ok(())
+    }
+
+    async fn recover_from_backup(&self) -> anyhow::Result<()> {
+        let ctx = self.context().await?;
+        if let Some(backup_client) = &self.backup_client {
+            let recovery_info = match backup_client.fetch_recovery_info().await {
+                Ok(recovery_info) => recovery_info,
+                Err(e) => {
+                    warn!("Failed to fetch recovery info from backup: {:?}, may be backup is not available", e);
+                    return Ok(());
+                }
+            };
+            info!(
+                "📋 Realm {} recovery info: latest checkpoint {}, available: {:?}",
+                backup_client.realm_id, recovery_info.latest_checkpoint, recovery_info.checkpoints_available
+            );
+
+            let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
+            let global_latest_checkpoint_id = self
+                .client
+                .get_latest_checkpoint_sync_info(self.realm_config.realm_id)
+                .await?
+                .latest_checkpoint_id;
+            info!(
+                "Local latest checkpoint {} vs backup latest checkpoint {}",
+                local_latest_checkpoint_id, recovery_info.latest_checkpoint
+            );
+            info!(
+                "Local latest checkpoint {} vs global latest checkpoint {}",
+                local_latest_checkpoint_id, global_latest_checkpoint_id
+            );
+
+            let target_checkpoint_id = std::cmp::min(global_latest_checkpoint_id, recovery_info.latest_checkpoint);
+
+            if local_latest_checkpoint_id >= target_checkpoint_id && local_latest_checkpoint_id <= global_latest_checkpoint_id {
+                info!(
+                    "Local latest checkpoint {} is greater than target checkpoint {}, no need to recover",
+                    local_latest_checkpoint_id, target_checkpoint_id
+                );
+            } else {
+                let from_checkpoint_id = if local_latest_checkpoint_id >= target_checkpoint_id {
+                    info!(
+                        "Local latest checkpoint {} is greater than target checkpoint {}, recover from checkpoint 0",
+                        local_latest_checkpoint_id, target_checkpoint_id
+                    );
+                    0
+                } else {
+                    info!(
+                        "Local latest checkpoint {} is less than target checkpoint {}, recover from local checkpoint {}",
+                        local_latest_checkpoint_id, target_checkpoint_id, local_latest_checkpoint_id
+                    );
+                    local_latest_checkpoint_id
+                };
+                info!(
+                    "Recovering from backup from checkpoint {} to {}",
+                    from_checkpoint_id, target_checkpoint_id
+                );
+
+                // check state
+                let current_sync_info = &self
+                    .client
+                    .get_checkpoint_sync_info(self.realm_config.realm_id, from_checkpoint_id)
+                    .await?;
+                let local_realm_root = ctx
+                    .store
+                    .get_user_sub_tree_merkle_proof(
+                        from_checkpoint_id,
+                        COORDINATOR_USER_TREE_HEIGHT,
+                        COORDINATOR_USER_TREE_HEIGHT,
+                        self.realm_config.realm_id as u64,
+                    )
+                    .await?
+                    .value;
+                ensure!(
+                    current_sync_info.realm_root == local_realm_root,
+                    "Realm root mismatch, remote realm root: {}, local realm root: {}",
+                    current_sync_info.realm_root,
+                    local_realm_root
+                );
+
+                let start_realm_state_backup = backup_client.fetch_realm_state(from_checkpoint_id).await.unwrap_or_default();
+                let realm_state_backup = backup_client.fetch_realm_state(target_checkpoint_id).await?;
+                trace!("start realm state: {}", serde_json::to_string_pretty(&start_realm_state_backup)?);
+                trace!("end realm state: {}", serde_json::to_string_pretty(&realm_state_backup)?);
+                {
+                    let mut realm_state = ctx
+                        .consumption_state
+                        .write()
+                        .map_err(|_| anyhow::anyhow!("Failed to acquire write lock"))?;
+                    *realm_state = RealmConsumptionState {
+                        last_processed_user_num: start_realm_state_backup.last_processed_user_num,
+                        current_processed_user_num: start_realm_state_backup.current_processed_user_num,
+                        total_pending_users: start_realm_state_backup.total_pending_users,
+                    };
+                }
+
+                info!("Cleanup pending users");
+                // handle consumption state
+                let count = ctx.sync_queue.get_pending_users_count().await?;
+                if count != 0 {
+                    warn!("Sync queue has {} pending users", count);
+                    let (local_pending_users, _) =
+                        QPendingUserStoreAsyncImm::peek_with_position::<F>(&*ctx.sync_queue, count, from_checkpoint_id).await?;
+                    let start = if start_realm_state_backup.is_committed {
+                        start_realm_state_backup.current_processed_user_num
+                    } else {
+                        start_realm_state_backup.last_processed_user_num
+                    };
+                    let remote_pending_users = backup_client
+                        .fetch_pending_users(start, start_realm_state_backup.total_pending_users)
+                        .await?;
+                    if local_pending_users != remote_pending_users {
+                        let pop_pending_users = ctx.sync_queue.pop_pending_users::<F>(count).await?;
+                        ctx.sync_queue.push_pending_users(&remote_pending_users).await?;
+                        trace!(
+                            "Popped {} pending users from sync queue: {}",
+                            count,
+                            serde_json::to_string_pretty(&pop_pending_users)?
+                        );
+                    }
+                }
+
+                // let sync_infos = self.fetch_remote_sync_infos(local_latest_checkpoint_id,
+                // recovery_info.latest_checkpoint).await?;
+                for checkpoint_id in from_checkpoint_id + 1..=target_checkpoint_id {
+                    // handle sync info
+                    // let current_sync_info = sync_infos[checkpoint_id as usize -
+                    // local_latest_checkpoint_id as usize].clone();
+                    let current_sync_info = &self.client.get_checkpoint_sync_info(self.realm_config.realm_id, checkpoint_id).await?;
+
+                    self.handle_sync_info(&ctx, current_sync_info.clone()).await?;
+
+                    if !recovery_info.checkpoints_available.contains(&checkpoint_id) {
+                        warn!("⚠️ Checkpoint {} not available in S3, skipping", checkpoint_id);
+                        continue;
+                    }
+
+                    let backup = backup_client.fetch_checkpoint_backup(checkpoint_id).await?;
+                    if !backup.is_committed {
+                        warn!("⚠️ Checkpoint {} not commited in S3, skipping", checkpoint_id);
+                        continue;
+                    }
+
+                    info!(
+                        "📝 Applying {} journal changes and {} removed keys for realm {} checkpoint {}",
+                        backup.pair_to_set.len(),
+                        backup.removed_keys.len(),
+                        self.realm_config.realm_id,
+                        checkpoint_id
+                    );
+
+                    let pair_to_set = backup
+                        .pair_to_set
+                        .iter()
+                        .map(|(k, v)| KVQPair {
+                            key: k.clone(),
+                            value: v.clone(),
+                        })
+                        .collect::<Vec<_>>();
+
+                    let pair_to_set_ref: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = pair_to_set
+                        .iter()
+                        .map(|kv| KVQPair {
+                            key: &kv.key,
+                            value: &kv.value,
+                        })
+                        .collect();
+                    let removed_keys = &backup.removed_keys;
+                    ctx.store.set_and_delete_many(&pair_to_set_ref, &removed_keys)?;
+                    ctx.store.commit(None).await?;
+
+                    let local_realm_root = ctx
+                        .store
+                        .get_user_sub_tree_merkle_proof(
+                            checkpoint_id,
+                            COORDINATOR_USER_TREE_HEIGHT,
+                            COORDINATOR_USER_TREE_HEIGHT,
+                            self.realm_config.realm_id as u64,
+                        )
+                        .await?
+                        .value;
+                    info!(
+                        "Remote realm root: {}, local realm root: {}",
+                        current_sync_info.realm_root, local_realm_root
+                    );
+                    ensure!(
+                        current_sync_info.realm_root == local_realm_root,
+                        "Realm root mismatch, remote realm root: {}, local realm root: {}",
+                        current_sync_info.realm_root,
+                        local_realm_root
+                    );
+                }
+
+                {
+                    let mut realm_state = ctx
+                        .consumption_state
+                        .write()
+                        .map_err(|_| anyhow::anyhow!("Failed to acquire write lock"))?;
+                    realm_state.last_processed_user_num = realm_state_backup.last_processed_user_num;
+                    realm_state.current_processed_user_num = realm_state_backup.current_processed_user_num;
+                }
+
+                // handle pending users
+                // let pending_users_count = ctx.sync_queue.get_pending_users_count().await? as
+                // u64; if pending_users_count +
+                // start_realm_state_backup.last_processed_user_num !=
+                // realm_state_backup.total_pending_users {     error!("Pending
+                // users count {} + last_processed_user_num {} not equal to backup pending users
+                // count {}", pending_users_count,
+                // start_realm_state_backup.last_processed_user_num,
+                // realm_state_backup.total_pending_users);     anyhow::bail!("
+                // Pending users count {} + last_processed_user_num {} not equal to backup
+                // pending users count {}", pending_users_count,
+                // start_realm_state_backup.last_processed_user_num,
+                // realm_state_backup.total_pending_users); }
+                if realm_state_backup.total_pending_users == 0 {
+                    info!("No pending users, skip fetching pending users");
+                }
+
+                let global_current_processed_user_num = if realm_state_backup.is_committed {
+                    realm_state_backup.current_processed_user_num
+                } else {
+                    realm_state_backup.last_processed_user_num
+                };
+                let processed_pending_users_num = global_current_processed_user_num - start_realm_state_backup.last_processed_user_num;
+                info!(
+                    "Global current processed user num: {}, processed pending users num: {}",
+                    global_current_processed_user_num, processed_pending_users_num
+                );
+                info!(
+                    "Popping {} users which are already processed from sync queue",
+                    processed_pending_users_num
+                );
+                if processed_pending_users_num != 0 {
+                    let poped_users = ctx.sync_queue.pop_pending_users::<F>(processed_pending_users_num as usize).await?;
+                    trace!("Popping users: {}", serde_json::to_string_pretty(&poped_users)?);
+                }
+
+                let pending_users_left_num = ctx.sync_queue.get_pending_users_count().await? as u64;
+
+                if pending_users_left_num != 0 {
+                    info!("Fetching {} pending users from backup", pending_users_left_num);
+                    let pending_users = backup_client
+                        .fetch_pending_users(
+                            global_current_processed_user_num,
+                            global_current_processed_user_num + pending_users_left_num,
+                        )
+                        .await?;
+                    let (peek_pending_users, _) = QPendingUserStoreAsyncImm::peek_with_position(
+                        &*ctx.sync_queue,
+                        pending_users_left_num as usize,
+                        recovery_info.latest_checkpoint,
+                    )
+                    .await?;
+                    trace!("Pending users: {}", serde_json::to_string_pretty(&pending_users)?);
+                    trace!("Peek pending users: {}", serde_json::to_string_pretty(&peek_pending_users)?);
+                    ensure!(
+                        peek_pending_users == pending_users,
+                        "Peek pending users not equal to backup pending users"
+                    );
+                } else {
+                    info!("No pending users left, skip fetching pending users");
+                }
+
+                // cleanup endcaps
+                let count = ctx.checkpoint_queue.get_queue_count(ctx.realm_config.guta_channel_id).await?;
+                if count != 0 {
+                    warn!("Endcap queue has {} endcaps", count);
+                    let endcap_queue_state = QueueOffsetState {
+                        start_position: 0,
+                        end_position: count as i64,
+                        checkpoint_id: target_checkpoint_id,
+                        channel_id: ctx.realm_config.guta_channel_id,
+                        consumed_count: count as usize,
+                    };
+                    CheckpointDrainQueueConsumerAsyncImmWithPosition::commit_offset(&*ctx.checkpoint_queue, &endcap_queue_state).await?;
+                    warn!("Popped {} endcaps from checkpoint queue", count);
+                }
+
+                // recover checkpoint cache
+                let latest_cached_checkpoint = backup_client.find_last_available_cached_checkpoint(global_latest_checkpoint_id + 1)?;
+                info!("Latest cached checkpoint: {}", latest_cached_checkpoint);
+                if backup_client.find_last_available_checkpoint(latest_cached_checkpoint)? >= realm_state_backup.checkpoint_id {
+                    if let Ok(cache) = backup_client.fetch_checkpoint_backup(latest_cached_checkpoint).await {
+                        info!("Checkpoint backup cache {} found", latest_cached_checkpoint);
+                        if cache.is_committed {
+                            info!("Checkpoint backup cache {} is committed, skip recovering", latest_cached_checkpoint);
+                            return Ok(());
+                        }
+                        let pair_to_set = cache
+                            .pair_to_set
+                            .iter()
+                            .map(|(k, v)| KVQPair {
+                                key: k.clone(),
+                                value: v.clone(),
+                            })
+                            .collect::<Vec<_>>();
+
+                        let pair_to_set_ref: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = pair_to_set
+                            .iter()
+                            .map(|kv| KVQPair {
+                                key: &kv.key,
+                                value: &kv.value,
+                            })
+                            .collect();
+                        ctx.store.set_and_delete_many(&pair_to_set_ref, &cache.removed_keys)?;
+                        let _ = self.save_snapshot(&ctx, latest_cached_checkpoint, vec![]).await?;
+
+                        let local_realm_root = ctx
+                            .store
+                            .get_user_sub_tree_merkle_proof(
+                                latest_cached_checkpoint,
+                                COORDINATOR_USER_TREE_HEIGHT,
+                                COORDINATOR_USER_TREE_HEIGHT,
+                                self.realm_config.realm_id as u64,
+                            )
+                            .await?
+                            .value;
+                        trace!("Local realm root: {}", local_realm_root);
+
+                        // recover pending user state
+                        if let Ok(queue_state) = backup_client.fetch_pending_users_queue_state(latest_cached_checkpoint).await {
+                            info!("Queue state backup {} found", latest_cached_checkpoint);
+                            ctx.sync_queue.set_last_peek_offset(&queue_state).await?;
+                        } else {
+                            info!("No queue state at checkpoint {}", latest_cached_checkpoint);
+                        }
+                    } else {
+                        info!("No checkpoint cache {} found", latest_cached_checkpoint);
+                    }
+                } else {
+                    info!("No commit cache");
+                }
+            }
+        } else {
+            warn!("Backup client is None, cannot recover from backup");
+        }
+
         Ok(())
     }
 
@@ -242,7 +584,7 @@ impl RealmProcessor {
     async fn confirm_checkpoint(&self, realm_root: QHashOut<F>, checkpoint_id: u64, latest_checkpoint_id: u64) -> anyhow::Result<()> {
         let snapshot = self.load_snapshot(realm_root)?;
         let build_ctx = self.context().await?;
-        build_ctx.store.restore_cache(snapshot.cache)?;
+        build_ctx.store.restore_cache(snapshot.cache).await?;
         trace!(
             "synced checkpoint id: {}, latest checkpoint id: {}, realm root: {}",
             checkpoint_id,
@@ -305,7 +647,7 @@ impl RealmProcessor {
     async fn save_snapshot(&self, build_ctx: &Context, checkpoint_id: u64, offset_state: Vec<QueueOffsetState>) -> anyhow::Result<()> {
         let (pre_realm_root, realm_root) = self.get_realm_root_diff(build_ctx, checkpoint_id).await?;
 
-        if let Some(cache) = build_ctx.store.get_cache()? {
+        if let Some(cache) = build_ctx.store.get_cache().await? {
             // Get or initialize version
             let version = self.get_realm_root_version(realm_root)?;
 
@@ -441,12 +783,12 @@ impl RealmProcessor {
 
                 let pending_users_count = sync_ctx.sync_queue.get_pending_users_count().await?;
                 trace!("Pending users count after checkpoint sync: {}", pending_users_count);
-                sync_ctx.store.commit(None)?;
+                sync_ctx.store.commit(None).await?;
                 Ok(())
             }
             Err(err) => {
                 error!(?sync_checkpoint_id, ?err, "Error sync checkpoint");
-                sync_ctx.store.rollback(sync_checkpoint_id)?;
+                sync_ctx.store.rollback(sync_checkpoint_id).await?;
                 Err(err)
             }
         }
