@@ -241,19 +241,19 @@ run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --keystore-path=.wallets/miner0.json \
-      --recipient=3
+      --recipient=3145728
 
 run-worker1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --keystore-path=.wallets/miner1.json \
-      --recipient=4
+      --recipient=1024
 
 run-worker2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --keystore-path=.wallets/miner2.json \
-      --recipient=5
+      --recipient=2098176
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
@@ -466,7 +466,7 @@ return-back:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs "[1048576, 250000000000]" --sign-type $(SIGN_TYPE)
 
 claim-rewards:
-	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --keystore-path .wallets/miner0.json  --sign-type zk --limit 10000
+	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --keystore-path .wallets/miner0.json --sign-type ${SIGN_TYPE} --limit 10000
 
 get-job-proof:
 	@RUST_LOG=info ./target/${PROFILE}/psy_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
