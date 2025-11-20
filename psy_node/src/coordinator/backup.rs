@@ -178,7 +178,7 @@ impl CoordinatorS3BackupClient {
     }
 
     fn get_changes_prefix_key(&self) -> String {
-        format!("coordinator/changes/")
+        "coordinator/changes/".to_string()
     }
 
     fn get_changes_key(&self, checkpoint_id: u64) -> String {
@@ -186,7 +186,7 @@ impl CoordinatorS3BackupClient {
     }
 
     fn get_recovery_info_key(&self) -> String {
-        format!("coordinator/recovery_info.json")
+        "coordinator/recovery_info.json".to_string()
     }
 }
 
