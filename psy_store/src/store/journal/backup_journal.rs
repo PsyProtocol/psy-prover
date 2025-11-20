@@ -69,6 +69,14 @@ impl<J: Journal> BackupJournalStore<J> {
 }
 
 #[async_trait]
+impl<J: Journal> BackupHandler for BackupJournalStore<J> {
+    async fn handle_backup(&self, request: BackupRequest) -> anyhow::Result<()> {
+        self.send_backup_request_inner(request);
+        Ok(())
+    }
+}
+
+#[async_trait]
 impl<J: Journal + Send + Sync> KVQBinaryStoreAsync for BackupJournalStore<J> {
     async fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
         <J as KVQBinaryStoreAsync>::get_exact_if_exists(&self.inner, key).await
