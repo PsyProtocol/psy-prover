@@ -85,7 +85,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
-        debug!("Processing user end cap input: {}", serde_json::to_string_pretty(&input).unwrap());
+        debug!("Processing user end cap input: {}", serde_json::to_string_pretty(&input)?);
         // start validation
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");
@@ -246,6 +246,8 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
             input: input.core,
             proof_id,
+            cst_user_update,
+            events: input.events.clone(),
             checkpoint_tree_proof,
             checkpoint_id: next_checkpoint_id,
             channel_id: self.realm_config.guta_channel_id,
