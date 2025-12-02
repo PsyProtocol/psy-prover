@@ -294,12 +294,15 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedis {
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedis {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
-        let metadata = item.get_dq_metadata();
-        let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!("{}-{}", checkpoint_queue_prefix, metadata.channel_id);
-
-        let bytes = item.to_bytes()?;
-        self.redis.rpush(key, bytes).await?;
+        let channel_id = item.get_dq_metadata().channel_id;
+        let item_id = item.get_dq_metadata().item_id; //user id or realm id
+        let key = self.drain_queue_key(channel_id);
+        let id_key = self.id_key(channel_id);
+        let now = self.redis.server_time().await?;
+        let now_micros = Self::time_to_microseconds(&now);
+        let mut builder = self.redis.cmd_builder();
+        let builder = builder.hset(key, item_id, item.to_bytes()?).zadd(id_key, item_id, now_micros);
+        builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
 }
