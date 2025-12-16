@@ -14,7 +14,6 @@ use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet:
 use psy_data::{
     config::store_config::{PsyHasher, C, D},
     qblock::cmds::deploy_contract::QContractABI,
-    qdata::uuid::UserEndCapUUID,
 };
 use psy_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use psy_rust_sdk::{
@@ -29,6 +28,8 @@ use crate::subcommand::{
     stress_test::{load_rpc_config, wait_for_new_block, NetworkConfig},
     StressTestArgs,
 };
+
+type UserEndCapUUID = String;
 
 const USER0_PRIVATE_KEY: &str = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
 const USER0_PUBLIC_KEY: &str = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
@@ -136,15 +137,15 @@ impl Multicast {
                 match ret {
                     Ok(pk_info) => {
                         let public_key = pk_info.qfhash::<PsyHasher>();
-                        let ret = { self.wallet_session.read().st_provider.get_user_id(public_key).await };
+                        let ret = { self.wallet_session.read().st_provider.get_user_ids_for_public_key(public_key).await };
                         match ret {
-                            Ok(user_id) => {
+                            Ok(user_ids) => {
                                 user_info.push(UserInfo {
-                                    user_id,
+                                    user_id: user_ids[0],
                                     pk: pk.clone(),
                                     pub_key: public_key,
                                 });
-                                info!("register_batch_user: User_id: {}, pk_hash: {}", user_id, public_key);
+                                info!("register_batch_user: User_id: {}, pk_hash: {}", user_ids[0], public_key);
                             }
                             Err(err) => error!("register_batch_user: Get user id error: {}", err),
                         }
@@ -345,12 +346,8 @@ impl Multicast {
         if contract_path.is_empty() {
             contract_path = "../psy-compiler/psy-precompiles/token/target/token.json".to_string();
         }
-        if contract_abi_path.is_empty() {
-            contract_abi_path = "./psy-precompiles/token/target/token.abi.json".to_string();
-        }
         info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(contract_path)?)?;
-        let abi: QContractABI = serde_json::from_str(&fs::read_to_string(contract_abi_path)?)?;
         for i in 0..count {
             tracing::info!("deploying contract for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
             self.wallet_session.read().deploy_contract(public_key0, defs_array.clone(), abi.clone()).await?;
@@ -368,6 +365,7 @@ impl Multicast {
             let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
             self.wallet_session.write().add_user(pk0, fingerprint).await?;
         }
+        let from_user_id = { self.wallet_session.read().st_provider.get_user_ids_for_public_key(public_key0).await?[0] };
         info!("Start to execute mint contract call");
         self.exec_contract_call(
             public_key0,
