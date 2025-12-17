@@ -368,7 +368,7 @@ run-benchmark:
 	@./scripts/run_benchmark.sh
 
 run-benchmark-user:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --only-user --concurrent-tasks 1000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-user --concurrent-tasks 1000
 
 run-benchmark-register:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/examples/register_user
