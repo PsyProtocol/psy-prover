@@ -16,7 +16,7 @@ pub mod realm_status;
 pub mod register_user;
 pub mod store;
 pub mod stress_test;
-
+pub mod multi_end_cap;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -72,6 +72,9 @@ pub enum Commands {
 
     #[command(about = "Store utility commands")]
     Store(store::StoreConfig),
+
+    #[command(about = "Multi-end-cap utility commands")]
+    MultiEndCap(multi_end_cap::MultiEndCapArgs),
 }
 
 #[derive(Parser)]
