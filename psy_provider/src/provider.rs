@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, marker::PhantomData, result::Result::Ok, sync::Arc, time::Duration};
+use std::{collections::HashMap, marker::PhantomData, result::Result::Ok, sync::Arc, time::Duration};
 
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
@@ -11,20 +11,15 @@ use plonky2::{
 };
 use psy_common::{
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
-    job::id::{QProvingJobDataID, QProvingJobDataIDWithRewardPath, VariableHeightRewardMerkleProof},
+    job::id::QProvingJobDataIDWithRewardPath,
     traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
-    JobInfo, JobLocation,
 };
 use psy_common_circuit::circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit;
-use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 use psy_crypto::{
-    common::{
-        user_id::get_user_id_from_registration_id,
-        witnesses::qrecursion::{
-            header::QRecursionAggStandardHeader,
-            proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
-        },
+    common::witnesses::qrecursion::{
+        header::QRecursionAggStandardHeader,
+        proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
     },
     hash::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
@@ -34,7 +29,7 @@ use psy_crypto::{
 };
 use psy_data::{
     api::reward::PsyProoffMinerRewardProof,
-    config::store_config::{PsyFelt, PsyHasher},
+    config::store_config::PsyHasher,
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition},
     qstore::controllers::session_info::SessionCircuitInfoStore,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
@@ -50,30 +45,25 @@ use psy_vm::{
     ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
-// #[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
-// #[cfg(not(target_arch = "wasm32"))]
-// use reqwest::blocking::Client;
-
-// #[cfg(target_arch = "wasm32")]
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
 use super::request::{
     Id, QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest, QGetUserIdsRPCRequest, QRegisterUserRPCRequest,
-    QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
+    QSubmitEndCapRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use crate::{
     request::{
-        DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest,
-        QGenerateBatchProofMinerRewardProofsRPCRequest, QGetCheckpointIdForUniquePendingIdRPCRequest, QGetContractMethodCommonDataRPCRequest,
-        QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
-        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest,
-        QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
-        QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest,
-        QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
-        QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGenerateBatchProofMinerRewardProofsRPCRequest,
+        QGetCheckpointIdForUniquePendingIdRPCRequest, QGetContractMethodCommonDataRPCRequest, QGetFnIdRPCRequest, QLatestBlockStateRPCRequest,
+        QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
+        QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
+        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
+        QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSingleLeafRpcRequestV2,
+        QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
+        QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
 };
@@ -421,15 +411,15 @@ impl QUserRpcProvider for RpcProvider {
         let url = self.get_coordinator_url()?;
         psy_rpc_call!(self, url, RequestParams::<F>::ProduceBlock)
     }
-    async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()> {
+    async fn add_withdrawal<F: RichField>(&self, _req: QAddWithdrawalRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
+    async fn claim_deposit<F: RichField>(&self, _req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()> {
+    async fn token_transfer<F: RichField>(&self, _req: QTokenTransferRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
@@ -676,83 +666,6 @@ impl RpcProvider {
                 Err(anyhow::format_err!("get_user_sub_tree_merkle_proof rpc call failed `{:?}`", e))
             }
         }
-    }
-
-    pub async fn get_job_proofs(&self, job_infos: Vec<JobInfo>) -> anyhow::Result<Vec<(QProvingJobDataID, VariableHeightRewardMerkleProof)>> {
-        let mut jobs_by_checkpoint: HashMap<u64, HashMap<JobLocation, Vec<JobInfo>>> = HashMap::new();
-
-        for job_info in job_infos {
-            let checkpoint_id = job_info.job_id.goal_id;
-            jobs_by_checkpoint
-                .entry(checkpoint_id)
-                .or_insert_with(HashMap::new)
-                .entry(job_info.location.clone())
-                .or_insert_with(Vec::new)
-                .push(job_info);
-        }
-
-        let mut all_results = Vec::new();
-
-        for (checkpoint_id, jobs_by_location) in jobs_by_checkpoint {
-            for (location, jobs) in jobs_by_location {
-                if jobs.is_empty() {
-                    continue;
-                }
-
-                let url = match &location {
-                    JobLocation::Coordinator => self.get_coordinator_url()?.clone(),
-                    JobLocation::Realm(realm_id) => {
-                        let realm_urls = self
-                            .realm_configs
-                            .get(realm_id)
-                            .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
-                        realm_urls[0].clone()
-                    }
-                };
-
-                let output_job_ids: Vec<_> = jobs.iter().map(|j| j.job_id.get_output_id()).collect();
-                let request = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "method": "psy_generate_batch_variable_height_reward_proofs",
-                    "params": [checkpoint_id, output_job_ids],
-                    "id": 1
-                });
-
-                let response = match self.client.post(url.clone()).json(&request).send().await {
-                    Ok(resp) => resp,
-                    Err(e) => {
-                        tracing::warn!("Failed to fetch reward proofs for checkpoint {} @ {}: {}", checkpoint_id, url, e);
-                        continue;
-                    }
-                };
-
-                let response: RpcResponse<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>> = match response.json().await {
-                    Ok(resp) => resp,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to decode reward proof RPC response for checkpoint {} @ {}: {}",
-                            checkpoint_id,
-                            url,
-                            e
-                        );
-                        continue;
-                    }
-                };
-
-                match response.result {
-                    ResponseResult::Success(proofs) => {
-                        for (proof, job_id) in proofs {
-                            all_results.push((job_id, proof));
-                        }
-                    }
-                    ResponseResult::Error(e) => {
-                        tracing::warn!("Reward proof RPC failed for checkpoint {} @ {}: {:?}", checkpoint_id, url, e);
-                    }
-                }
-            }
-        }
-
-        Ok(all_results)
     }
 
     pub async fn get_claim_amount(&self, checkpoint_id: u64, user_id: u64, claim_user_id: u64) -> anyhow::Result<u64> {
@@ -1007,8 +920,6 @@ where
     pub async fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
         let client = Client::new();
 
-        // todo fix bug
-        // #[cfg(target_arch = "wasm32")]
         let response = client
             .post(&proof_proxy_url)
             .json(&RpcRequest {
@@ -1020,16 +931,7 @@ where
             .await?
             .json::<RpcResponse<String>>()
             .await?;
-        // #[cfg(not(target_arch = "wasm32"))]
-        // let response = client
-        //     .post(&proof_proxy_url)
-        //     .json(&RpcRequest {
-        //         jsonrpc: Version::V2,
-        //         request: RequestParams::<C::F>::GetCircuitsData(),
-        //         id: Id::Number(1),
-        //     })
-        //     .send()?
-        //     .json::<RpcResponse<String>>()?;
+
         let common_circuits_data = match response.result {
             ResponseResult::Success(common_circuits_data) => {
                 tracing::info!("get common_circuits_data");
@@ -1037,8 +939,6 @@ where
             }
             ResponseResult::Error(e) => return Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         };
-        // let common_circuits_data = "";
-        // let common_circuits_data = serde_json::from_str(&common_circuits_data)?;
 
         Ok(Self {
             client: Arc::new(client),
@@ -1502,10 +1402,10 @@ where
 
     async fn prove_plonky2_software_defined_sign(
         &self,
-        fingerprint: QHashOut<C::F>,
-        private_key: QHashOut<C::F>,
-        input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput,
-        sig_hash: QHashOut<C::F>,
+        _fingerprint: QHashOut<C::F>,
+        _private_key: QHashOut<C::F>,
+        _input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput,
+        _sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove_plonky2_software_defined_sign:");
         // Now that we have StateReaderResults which can be serialized, this can be
@@ -1516,7 +1416,7 @@ where
 
     async fn prove_ups_end_cap(
         &self,
-        circuit_info: &SessionCircuitInfoStore<C::F>,
+        _circuit_info: &SessionCircuitInfoStore<C::F>,
         end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
         agg_proof_record: &AggProofRecord<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {

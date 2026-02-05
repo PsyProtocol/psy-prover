@@ -1,23 +1,6 @@
-use plonky2::{
-    field::{
-        extension::Extendable,
-        types::{Field, PrimeField},
-    },
-    hash::hash_types::RichField,
-    iop::target::Target,
-    plonk::circuit_builder::CircuitBuilder,
-};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 
-use crate::crypto::{
-    bn254::{
-        field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
-        gadgets::{
-            g1::{CircuitBuilderG1, G1AffineTarget},
-            nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-        },
-    },
-    secp256k1::ecdsa::curve::curve_types::AffinePoint,
-};
+use crate::crypto::{bn254::gadgets::g1::G1AffineTarget, secp256k1::ecdsa::curve::curve_types::AffinePoint};
 
 #[derive(Clone, Debug)]
 pub struct KZGCommitmentTarget<F: RichField + Extendable<D>, const D: usize> {
@@ -34,14 +17,17 @@ mod tests {
     use plonky2::{
         iop::witness::PartialWitness,
         plonk::{
-            circuit_data::CircuitConfig,
+            circuit_builder::CircuitBuilder,
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
 
-    use super::*;
     use crate::crypto::{
-        bn254::pairing_config,
+        bn254::{
+            field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
+            gadgets::{CircuitBuilderG1, CircuitBuilderNonNative},
+            pairing_config,
+        },
         kzg::{fft::CircuitBuilderFFT, CircuitBuilderKZG},
     };
 
@@ -52,7 +38,7 @@ mod tests {
     #[test]
     fn test_kzg_commitment_structure() {
         use crate::crypto::{
-            bn254::gadgets::pairing::{AffinePointTargetG2, CircuitBuilderCurveG2},
+            bn254::gadgets::pairing::CircuitBuilderCurveG2,
             kzg::{fft::CircuitBuilderFFT, setup::KZGSetup},
         };
 
@@ -105,7 +91,7 @@ mod tests {
     #[test]
     fn test_kzg_with_verify() {
         use crate::crypto::{
-            bn254::gadgets::pairing::{AffinePointTargetG2, CircuitBuilderCurveG2},
+            bn254::gadgets::pairing::CircuitBuilderCurveG2,
             kzg::{fft::CircuitBuilderFFT, setup::KZGSetup},
         };
 
@@ -162,10 +148,7 @@ mod tests {
 
     #[test]
     fn test_kzg_linear_polynomial() {
-        use crate::crypto::{
-            bn254::gadgets::pairing::{AffinePointTargetG2, CircuitBuilderCurveG2},
-            kzg::setup::KZGSetup,
-        };
+        use crate::crypto::{bn254::gadgets::pairing::CircuitBuilderCurveG2, kzg::setup::KZGSetup};
 
         let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 
@@ -229,11 +212,7 @@ mod tests {
 
     #[test]
     fn test_kzg_debug_zero_inversion() {
-        use crate::crypto::{
-            bn254::gadgets::pairing::{AffinePointTargetG2, CircuitBuilderCurveG2},
-            kzg::setup::KZGSetup,
-            secp256k1::ecdsa::curve::curve_types::{AffinePoint, CurveScalar},
-        };
+        use crate::crypto::{bn254::gadgets::pairing::CircuitBuilderCurveG2, kzg::setup::KZGSetup};
 
         let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 
@@ -307,7 +286,7 @@ mod tests {
         println!("Testing pairing(infinity, G2)...");
 
         // Compute pairing(infinity, G2) - should equal identity in GT
-        let result = builder.pairing::<Bn128Base, G1, G2>(&g1_inf, &g2_gen);
+        let _result = builder.pairing::<Bn128Base, G1, G2>(&g1_inf, &g2_gen);
 
         println!("Building circuit...");
         let data = builder.build::<C>();
@@ -397,10 +376,7 @@ mod tests {
 
     #[test]
     fn test_kzg_verify_non_constant_polynomial() {
-        use crate::crypto::{
-            bn254::gadgets::pairing::{AffinePointTargetG2, CircuitBuilderCurveG2},
-            kzg::setup::KZGSetup,
-        };
+        use crate::crypto::{bn254::gadgets::pairing::CircuitBuilderCurveG2, kzg::setup::KZGSetup};
 
         let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 
@@ -455,10 +431,7 @@ mod tests {
 
     #[test]
     fn test_simple_kzg_witness_error() {
-        use crate::crypto::{
-            bn254::gadgets::pairing::{AffinePointTargetG2, CircuitBuilderCurveG2},
-            kzg::setup::KZGSetup,
-        };
+        use crate::crypto::{bn254::gadgets::pairing::CircuitBuilderCurveG2, kzg::setup::KZGSetup};
 
         let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 

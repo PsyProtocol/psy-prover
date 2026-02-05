@@ -274,12 +274,12 @@ impl QSRMerkleCmd {
             QSRMerkleCmd::GetUserContractStateTreeMerkleProof(c) => Some(c.user_id),
             QSRMerkleCmd::GetUserContractTreeMerkleProof(c) => Some(c.user_id),
             QSRMerkleCmd::GetUserTreeMerkleProof(c) => Some(c.user_id),
-            QSRMerkleCmd::GetContractFunctionTreeMerkleProof(c) => None,
-            QSRMerkleCmd::GetContractTreeMerkleProof(c) => None,
-            QSRMerkleCmd::GetDepositTreeMerkleProof(c) => None,
-            QSRMerkleCmd::GetWithdrawalTreeMerkleProof(c) => None,
-            QSRMerkleCmd::GetCheckpointTreeMerkleProof(c) => None,
-            QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(c) => None,
+            QSRMerkleCmd::GetContractFunctionTreeMerkleProof(_c) => None,
+            QSRMerkleCmd::GetContractTreeMerkleProof(_c) => None,
+            QSRMerkleCmd::GetDepositTreeMerkleProof(_c) => None,
+            QSRMerkleCmd::GetWithdrawalTreeMerkleProof(_c) => None,
+            QSRMerkleCmd::GetCheckpointTreeMerkleProof(_c) => None,
+            QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(_c) => None,
         }
     }
     pub fn is_realm_cmd(&self) -> bool {

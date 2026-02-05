@@ -1,7 +1,7 @@
 use plonky2::{hash::hash_types::RichField, iop::witness::Witness};
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use psy_data::{qdata::user::PsyUserLeaf, qstore::imm::cmd_processor::DPNStateCmdWitness};
+use psy_data::qdata::user::PsyUserLeaf;
 use psy_vm::{
     dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition},
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyCmdWithInputAndWitness},

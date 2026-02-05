@@ -7,7 +7,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         ext_target::ExtensionTarget,
-        generator::{GeneratedValues, SimpleGenerator, WitnessGenerator, WitnessGeneratorRef},
+        generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef},
         target::Target,
         wire::Wire,
         witness::{PartitionWitness, Witness, WitnessWrite},
@@ -299,7 +299,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U28
         output_u32s.resize(8, 0);
         for j in 0..8 {
             let output_result = F::from_canonical_u32(output_u32s[j]);
-            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone());
+            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone())?;
         }
 
         for j in 0..8 {
@@ -315,7 +315,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U28
 
             for k in 0..num_limbs {
                 let wire = local_wire(self.gate.wire_ith_output_jth_limb_kth_limb(self.i, j, k));
-                out_buffer.set_wire(wire, output_limbs[k].clone());
+                out_buffer.set_wire(wire, output_limbs[k].clone())?;
             }
         }
         Ok(())

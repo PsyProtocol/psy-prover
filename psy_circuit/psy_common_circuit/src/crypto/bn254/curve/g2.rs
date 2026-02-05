@@ -52,7 +52,6 @@ const BN128G2_GENERATOR_Y: QuadraticExtension<Bn128Base> = QuadraticExtension::<
 #[cfg(test)]
 mod tests {
     use num::BigUint;
-    use plonky2::field::types::{Field, PrimeField};
 
     use crate::crypto::{
         bn254::{curve::g2::G2, field::bn128_scalar::Bn128Scalar},

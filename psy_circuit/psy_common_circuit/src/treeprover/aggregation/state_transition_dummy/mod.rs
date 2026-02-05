@@ -25,7 +25,6 @@ use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::tree
 
 use crate::{
     builder::{
-        comparison::CircuitBuilderComparison,
         hash::core::CircuitBuilderHashCore,
         pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use kvq::traits::{KVQBinaryStore, KVQPair, KVQSerializable, KVQStoreAdapter, KVQStoreAdapterReader};
+use kvq::traits::{KVQPair, KVQSerializable, KVQStoreAdapter, KVQStoreAdapterReader};
 use psy_crypto::hash::{
     merkle::{
         core::{DeltaMerkleProofCore, MerkleProofCore},
@@ -15,7 +15,7 @@ use super::super::key::KVQMerkleNodeKey;
 pub const CHECKPOINT_ID_FUZZY_SIZE: usize = 8;
 
 #[derive(Debug, Clone)]
-struct NCAAggregation<const TABLE_TYPE: u16> {
+pub struct NCAAggregation<const TABLE_TYPE: u16> {
     nca: KVQMerkleNodeKey<TABLE_TYPE>,
     left: KVQMerkleNodeKey<TABLE_TYPE>,
     right: KVQMerkleNodeKey<TABLE_TYPE>,
@@ -494,7 +494,7 @@ pub trait KVQMerkleTreeModelCore<
         nodes: &[KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>],
         subtree_root: KVQMerkleNodeKey<TABLE_TYPE>,
         tree_height: u8,
-        updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
+        _updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
     ) -> anyhow::Result<Vec<NCAAggregation<TABLE_TYPE>>> {
         let mut aggregations = Vec::new();
         let mut node_to_proof_index: HashMap<(u8, u64), usize> = HashMap::new();

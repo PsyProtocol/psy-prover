@@ -28,7 +28,6 @@ const BN128_GENERATOR_Y: Bn128Base = Bn128Base::TWO;
 #[cfg(test)]
 mod tests {
     use num::BigUint;
-    use plonky2::field::types::{Field, PrimeField};
 
     use crate::crypto::{
         bn254::{curve::g1::G1, field::bn128_scalar::Bn128Scalar},

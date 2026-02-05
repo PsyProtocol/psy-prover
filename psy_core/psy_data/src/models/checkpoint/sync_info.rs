@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
+use kvq::traits::{KVQStoreAdapter, KVQStoreAdapterReader};
 
 use crate::{config::store_config::QCheckpointSyncInfoCompact, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE, qdata::u64_key::U64TableKey};
 

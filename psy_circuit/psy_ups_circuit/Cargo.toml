@@ -30,7 +30,7 @@ psy_dpn_circuit = { workspace = true, default-features = false }
 psy_vm = { workspace = true, default-features = false }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
-psy_store = { workspace = true, default-features = false }
+# psy_store = { workspace = true, default-features = false }
 
 k256 = { workspace = true }
 
@@ -71,7 +71,7 @@ is_sync = [
     "psy_data/is_sync",
     "maybe-async/is_sync",
     "psy_vm/is_sync",
-    "psy_store/is_sync",
+    # "psy_store/is_sync",
     "psy_common_circuit/is_sync",
     "psy_network_circuit/is_sync",
     "psy_dpn_circuit/is_sync",

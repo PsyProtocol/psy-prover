@@ -16,14 +16,13 @@ use psy_crypto::{
     },
     hash::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-        traits::{hasher::MerkleZeroHasherWithMarkedLeaf, qhashable::QFieldHashable},
+        traits::hasher::MerkleZeroHasherWithMarkedLeaf,
     },
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
 use psy_data::{
     qdata::contract::ContractCodeDefinition,
-    qstore::{controllers::session_info::SessionCircuitInfoStore, imm::cmd_processor::PsyReadCommandProcessorSync},
-    traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
+    qstore::controllers::session_info::SessionCircuitInfoStore,
     ups::{
         start_step::UPSStartStepInput,
         start_step_register_user::UPSStartStepRegisterUserInput,

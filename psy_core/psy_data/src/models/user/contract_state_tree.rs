@@ -1,22 +1,16 @@
 use std::marker::PhantomData;
 
-use kvq::{
-    adapters::standard::KVQStandardAdapter,
-    traits::{KVQBinaryStore, KVQStoreAdapter},
-};
+use kvq::{adapters::standard::KVQStandardAdapter, traits::KVQStoreAdapter};
 use plonky2::hash::hash_types::RichField;
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    traits::hasher::{MerkleZeroHasher, MerkleZeroHasherWithCache, MerkleZeroHasherWithCacheMarkedLeaf, MerkleZeroHasherWithMarkedLeaf},
+    traits::hasher::MerkleZeroHasherWithMarkedLeaf,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::store_config::{
-        BaseContractStateTreeStore, PsyDeltaMerkleProof, PsyFelt, PsyHash, PsyHasher, PsyMerkleProof, CONTRACT_STATE_TREE_ID,
-        USER_CONTRACT_STATE_TREE_TABLE_TYPE,
-    },
+    config::store_config::{BaseContractStateTreeStore, PsyFelt, PsyHasher, CONTRACT_STATE_TREE_ID, USER_CONTRACT_STATE_TREE_TABLE_TYPE},
     models::kvq_merkle::{
         key::KVQMerkleNodeKey,
         model::{KVQMerkleTreeModelCore, KVQMerkleTreeModelReaderCore},

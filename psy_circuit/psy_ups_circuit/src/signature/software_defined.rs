@@ -13,7 +13,7 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
+        circuit_data::{CircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig},
         proof::ProofWithPublicInputs,
     },
@@ -24,23 +24,15 @@ use psy_common_circuit::{
         hash::core::CircuitBuilderHashCore,
         pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
-    circuits::traits::qstandard::QStandardCircuit,
     proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
-use psy_data::qstore::imm::cmd_processor::PsyReadCommandProcessorSync;
 use psy_dpn_circuit::vm::compile::PsyContractFunctionBuilderGadget;
 use psy_vm::{
     dpn::vm::def::DPNFunctionCircuitDefinition,
-    ups::{
-        signature::{DPNSoftwareDefinedSignatureInput, Plonky2SoftwareDefinedSignatureInput},
-        state_reader::StateReader,
-    },
-    vm::cfc_input::DapenContractFunctionCircuitInput,
+    ups::signature::{DPNSoftwareDefinedSignatureInput, Plonky2SoftwareDefinedSignatureInput},
 };
-use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::signature::state_reader::StateReaderGadget;
 

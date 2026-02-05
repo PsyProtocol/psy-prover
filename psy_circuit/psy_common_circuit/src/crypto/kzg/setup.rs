@@ -1,6 +1,6 @@
 use crate::crypto::{
-    bn254::field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension},
-    secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve, CurveScalar, ProjectivePoint},
+    bn254::field::bn128_scalar::Bn128Scalar,
+    secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve, CurveScalar},
 };
 
 #[derive(Clone, Debug)]
@@ -101,7 +101,6 @@ impl KZGSetup {
     /// - g = multiplicative generator of the field
     fn compute_primitive_root_of_unity(n: usize) -> Bn128Scalar {
         use num::{BigUint, One};
-        use plonky2::field::types::Field;
 
         assert!(n.is_power_of_two(), "n must be power of 2");
 
@@ -169,10 +168,10 @@ mod tests {
     #[test]
     fn test_powers_of_tau_consistency() {
         let tau = Bn128Scalar::from_canonical_u64(7);
-        let params = KZGSetup::new_trusted_setup(tau, 4);
+        let _params = KZGSetup::new_trusted_setup(tau, 4);
 
         use crate::crypto::bn254::curve::g1::G1;
-        let g1_gen = G1::GENERATOR_AFFINE;
+        let _g1_gen = G1::GENERATOR_AFFINE;
 
         // First Lagrange basis element is not the generator
         // since L_0(τ) = (τ^n - 1) / (n * (τ - 1))
@@ -180,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_new_trusted_setup_powers() {
-        use crate::crypto::bn254::curve::{g1::G1, g2::G2};
+        use crate::crypto::bn254::curve::g2::G2;
 
         let tau = Bn128Scalar::from_canonical_u64(3);
         let max_degree = 4;
@@ -296,7 +295,7 @@ mod tests {
         let n_inv = Bn128Scalar::from_canonical_usize(domain_size).inverse();
 
         for i in 0..domain_size {
-            let expected_li_tau = tau_n_minus_1 * (tau - roots[i]).inverse() * n_inv;
+            let _expected_li_tau = tau_n_minus_1 * (tau - roots[i]).inverse() * n_inv;
             // We can't directly verify the G1 points, but we can check the computation
             // logic
             assert_ne!(tau - roots[i], Bn128Scalar::ZERO, "tau should not equal any root of unity");

@@ -483,7 +483,7 @@ mod tests {
         plonk::{
             circuit_builder::CircuitBuilder,
             circuit_data::{CircuitConfig, CircuitData},
-            config::{GenericConfig, PoseidonGoldilocksConfig},
+            config::PoseidonGoldilocksConfig,
             proof::ProofWithPublicInputs,
         },
     };
@@ -963,7 +963,7 @@ mod tests {
 
         let circuit = builder.build::<C>();
 
-        let mut pw = PartialWitness::new();
+        let pw = PartialWitness::new();
         let proof = circuit.prove(pw)?;
 
         circuit.verify(proof.clone())?;

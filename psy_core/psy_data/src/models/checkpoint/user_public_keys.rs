@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
+use kvq::traits::{KVQStoreAdapter, KVQStoreAdapterReader};
 use psy_common::utils::math::ceil_div_usize;
 use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};

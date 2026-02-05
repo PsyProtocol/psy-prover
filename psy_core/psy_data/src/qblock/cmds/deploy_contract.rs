@@ -5,10 +5,7 @@ use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::CONTRACT_FUNCTION_TREE_HEIGHT;
-use psy_crypto::hash::{
-    merkle::utils::simple_merkle_tree::SimpleMerkleTree,
-    traits::hasher::{MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
-};
+use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -83,8 +80,8 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
         // let zero = QHashOut::from_values(0, 0, 0, 0);
         // for i in 0..code_definition.functions.len() {
         //     let base = i * 2;
-        //     ensure!(function_whitelist[base + 1] == zero, "function whitelist placeholder must be zero");
-        // }
+        //     ensure!(function_whitelist[base + 1] == zero, "function whitelist
+        // placeholder must be zero"); }
         let mut whitelist_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(CONTRACT_FUNCTION_TREE_HEIGHT);
         for (i, leaf) in function_whitelist.iter().enumerate() {
             whitelist_tree.set_leaf(i as u64, *leaf);
@@ -185,6 +182,7 @@ pub struct StructAbiSpec {
     pub name: String,
     pub is_contract: bool,
     pub fields: Vec<FieldAbiSpec>,
+    #[ts(skip)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub functions: Option<Vec<FunctionAbiSpec>>,
 }
@@ -351,9 +349,9 @@ impl ABISlotAnalyzer {
                 self.get_field_by_slot_inner(&field_range.field_type, slot - field_range.start_slot, current_path)?;
             }
             TypeAbiSpec::Array {
-                type_name,
+                type_name: _,
                 inner_type,
-                length,
+                length: _,
             } => {
                 if matches!(inner_type.as_str(), "Felt" | "u32" | "bool") {
                     current_path.push_str(&format!("[{}]", slot));
@@ -380,10 +378,11 @@ impl ABISlotAnalyzer {
 }
 
 mod tests {
-    use super::*;
 
     #[test]
     fn test_qcontract_abi_serialization_and_analyze() -> anyhow::Result<()> {
+        use crate::qblock::cmds::deploy_contract::{ABISlotAnalyzer, QContractABI};
+
         let abi_str = r#"{
             "version": "1.0.0",
             "structs": [

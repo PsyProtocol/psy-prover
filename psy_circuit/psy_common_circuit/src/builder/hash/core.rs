@@ -10,7 +10,7 @@ use plonky2::{
 use psy_common::data::qhashout::QHashOut;
 
 use crate::{
-    builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore, select::CircuitBuilderSelectHelpers},
+    builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore},
     hash::base_types::hash256::Hash256Target,
     u32::arithmetic_u32::U32Target,
 };

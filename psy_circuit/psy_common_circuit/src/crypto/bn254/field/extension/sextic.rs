@@ -1,5 +1,4 @@
 use core::{
-    any::TypeId,
     fmt::{self, Debug, Display, Formatter},
     iter::{Product, Sum},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},

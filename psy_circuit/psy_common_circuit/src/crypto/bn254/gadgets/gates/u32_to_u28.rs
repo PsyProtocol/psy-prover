@@ -7,7 +7,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         ext_target::ExtensionTarget,
-        generator::{GeneratedValues, SimpleGenerator, WitnessGenerator, WitnessGeneratorRef},
+        generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef},
         target::Target,
         wire::Wire,
         witness::{PartitionWitness, Witness, WitnessWrite},
@@ -300,7 +300,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32
         for j in 0..10 {
             let this_limb: BigUint = (input_biguint.clone() >> (j * 28)) & BigUint::from_u32(0xfffffff).unwrap();
             let output_result = F::from_canonical_u32(this_limb.to_u32().unwrap());
-            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone());
+            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone())?;
         }
 
         for j in 0..8 {
@@ -316,7 +316,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32
 
             for k in 0..num_limbs {
                 let wire = local_wire(self.gate.wire_ith_input_jth_limb_kth_limb(self.i, j, k));
-                out_buffer.set_wire(wire, output_limbs[k].clone());
+                out_buffer.set_wire(wire, output_limbs[k].clone())?;
             }
         }
         Ok(())

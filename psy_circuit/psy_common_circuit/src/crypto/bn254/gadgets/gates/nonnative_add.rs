@@ -8,7 +8,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         ext_target::ExtensionTarget,
-        generator::{GeneratedValues, SimpleGenerator, WitnessGenerator, WitnessGeneratorRef},
+        generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef},
         target::Target,
         wire::Wire,
         witness::{PartitionWitness, Witness, WitnessWrite},
@@ -19,8 +19,6 @@ use plonky2::{
         vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch, EvaluationVarsBasePacked},
     },
 };
-
-use crate::crypto::bn254::field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar};
 
 // Helper function to get field modulus as 32-bit limbs based on field type
 fn get_field_modulus_32bit<F: Field>() -> [u32; 8] {
@@ -378,18 +376,18 @@ impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F,
         output_result_u32s.resize(8, 0u32);
 
         let base = F::from_canonical_u64(1 << 32u64);
-        out_buffer.set_wire(local_wire(self.gate.wire_ith_carry(self.i)), carry.clone());
+        out_buffer.set_wire(local_wire(self.gate.wire_ith_carry(self.i)), carry.clone())?;
         let mut last_carry_l = F::ZERO;
         let mut last_carry_r = F::ZERO;
         for j in 0..8 {
             let output_result = F::from_canonical_u32(output_result_u32s[j]);
-            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone());
+            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone())?;
             let carry_l = if (input_x[j].clone() + input_y[j].clone() + last_carry_l).to_canonical_u64() >= base.to_canonical_u64() {
                 F::ONE
             } else {
                 F::ZERO
             };
-            out_buffer.set_wire(local_wire(self.gate.wire_ith_carry_l(self.i, j)), carry_l.clone());
+            out_buffer.set_wire(local_wire(self.gate.wire_ith_carry_l(self.i, j)), carry_l.clone())?;
             let modulus_limbs = get_field_modulus_32bit::<FF>();
             let carry_r = if (output_result.clone() + F::from_canonical_u32(modulus_limbs[j]) * carry + last_carry_r).to_canonical_u64()
                 >= base.to_canonical_u64()
@@ -398,7 +396,7 @@ impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F,
             } else {
                 F::ZERO
             };
-            out_buffer.set_wire(local_wire(self.gate.wire_ith_carry_r(self.i, j)), carry_r.clone());
+            out_buffer.set_wire(local_wire(self.gate.wire_ith_carry_r(self.i, j)), carry_r.clone())?;
             last_carry_l = carry_l.clone();
             last_carry_r = carry_r.clone();
         }
@@ -416,7 +414,7 @@ impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F,
 
             for k in 0..num_limbs {
                 let wire = local_wire(self.gate.wire_ith_output_jth_limb32_kth_limb2_bit(self.i, j, k));
-                out_buffer.set_wire(wire, output_limbs[k].clone());
+                out_buffer.set_wire(wire, output_limbs[k].clone())?;
             }
         }
         Ok(())
@@ -428,6 +426,7 @@ mod tests {
     use plonky2::{field::goldilocks_field::GoldilocksField, gates::gate_testing::test_low_degree};
 
     use super::*;
+    use crate::crypto::bn254::field::bn128_base::Bn128Base;
 
     #[test]
     fn low_degree() {

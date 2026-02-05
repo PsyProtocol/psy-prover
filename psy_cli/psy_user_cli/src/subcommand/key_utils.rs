@@ -15,7 +15,7 @@ use psy_crypto::{
 };
 use psy_data::config::store_config::PsyHasher;
 use psy_prover::wallet::memory_wallet::{get_secp256k1_fingerprint, get_zk_fingerprint};
-use psy_rust_sdk::wallet::secp_wallet::Wallet;
+use psy_provider::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::signature::software_defined::get_sdc_public_key_param;
 use serde::{Deserialize, Serialize};
 
@@ -126,7 +126,7 @@ fn load_or_create_key(args: &WalletSourceArgs, allow_generate: bool) -> Result<(
         match Wallet::load(None, Some(Path::new(path)), args.wallet_password.as_deref()) {
             Ok(wallet) => return Ok((parse_qhash(&wallet.private_key_hex())?, false)),
             Err(_) if allow_generate => {
-                let mut wallet = Wallet::new()?;
+                let wallet = Wallet::new()?;
                 wallet.save(Path::new(path), args.wallet_password.as_deref())?;
                 return Ok((parse_qhash(&wallet.private_key_hex())?, true));
             }

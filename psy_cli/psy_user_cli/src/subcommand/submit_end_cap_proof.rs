@@ -1,18 +1,7 @@
-use std::str::FromStr;
-
-use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
-use psy_common::{
-    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType, WalletSessionArgs},
-    data::qhashout::QHashOut,
-};
-use psy_common_circuit::builder::comparison::CircuitBuilderComparison;
+use psy_common::args::{SignType, WalletSessionArgs};
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_prover::session::WalletSession;
-use psy_rust_sdk::provider::NetworkConfig;
-use psy_ups_circuit::signature::software_defined::Plonky2SoftwareDefinedSignatureGadget;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
-use serde::{Deserialize, Serialize};
 
 use crate::subcommand::key_utils::load_wallet_key_info;
 
@@ -21,7 +10,7 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let rpc_config = psy_config.get_current_network()?.clone();
 
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let mut info = load_wallet_key_info(&args.wallet, false)?;
+    let info = load_wallet_key_info(&args.wallet, false)?;
 
     match args.wallet.sign_type {
         SignType::SoftwareDefinedPlonky2Sign => {
@@ -30,7 +19,7 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
                 .register_plonky2_software_defined_circuit(MAX_CONTRACT_STATE_TREE_HEIGHT, 0)
                 .await?;
 
-            if let Some(mut circuit) = wallet_session.wallet.get_plonky2_software_defined_circuit_mut(&fingerprint) {
+            if let Some(mut _circuit) = wallet_session.wallet.get_plonky2_software_defined_circuit_mut(&fingerprint) {
                 // add custom constraints here
                 // state_reader must do the same thing while generating
                 // witnesses

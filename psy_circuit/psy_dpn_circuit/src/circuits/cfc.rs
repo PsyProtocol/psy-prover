@@ -1,6 +1,6 @@
 use plonky2::{
     gates::gate::GateRef,
-    hash::hash_types::{HashOut, HashOutTarget},
+    hash::hash_types::HashOut,
     iop::{
         target::Target,
         witness::{PartialWitness, WitnessWrite},
@@ -19,10 +19,10 @@ use psy_common_circuit::{
         pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
     circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
-    proof_minifier::{pm_chain::PsyProofMinifierChain, pm_core::get_circuit_fingerprint_generic},
+    proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
 
 use crate::vm::compile::PsyContractFunctionBuilderGadget;

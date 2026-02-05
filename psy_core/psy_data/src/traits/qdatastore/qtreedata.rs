@@ -1,18 +1,12 @@
 use plonky2::hash::hash_types::RichField;
 use psy_common::data::qhashout::QHashOut;
-use psy_crypto::hash::{
-    merkle::{
-        core::{DeltaMerkleProofCore, MerkleProofCore},
-        spiderman::SpidermanUpdateProof,
-    },
-    traits::qhashable::QFieldHashable,
+use psy_crypto::hash::merkle::{
+    core::{DeltaMerkleProofCore, MerkleProofCore},
+    spiderman::SpidermanUpdateProof,
 };
 
 use super::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync};
-use crate::{
-    config::store_config::PsyHasher,
-    qdata::checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats},
-};
+use crate::qdata::checkpoint::PsyCheckpointGlobalStateRoots;
 
 pub trait ActiveCheckpointReaderSync<F: RichField> {
     fn get_active_checkpoint(&self) -> anyhow::Result<u64>;

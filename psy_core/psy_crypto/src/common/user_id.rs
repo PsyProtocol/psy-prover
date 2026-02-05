@@ -351,13 +351,9 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
 #[cfg(test)]
 mod tests {
     use plonky2::{
-        field::{
-            extension::Extendable,
-            types::{Field, PrimeField64},
-        },
-        hash::hash_types::RichField,
+        field::types::{Field, PrimeField64},
         iop::{
-            target::{BoolTarget, Target},
+            target::Target,
             witness::{PartialWitness, WitnessWrite},
         },
         plonk::{
@@ -447,7 +443,6 @@ mod tests {
             Ok(())
         }
         pub fn full_check<UIDGen: UserIdGeneratorStrategy>(batch_size: usize, count: usize, rand_count: usize) -> anyhow::Result<()> {
-            type C = PoseidonGoldilocksConfig;
             let max_regions = (count / batch_size) as u64;
             let rand_regions = (rand_count / batch_size) as u64;
             let b_size = batch_size as u64;
@@ -512,7 +507,6 @@ mod tests {
         SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy4>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
 
-
     #[test]
     fn test_inverse_strategy_1() {
         test_inverse::<UserIdBitsStrategy1>(1024, 64 * 1024, 64 * 1024).unwrap();
@@ -532,7 +526,7 @@ mod tests {
 
     #[test]
     fn test_strategy_5_distribution_demo() {
-        use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT};
+        use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT, REALM_USER_TREE_HEIGHT};
 
         println!("Testing UserIdBitsStrategy5 Distribution Logic...");
 
@@ -540,16 +534,17 @@ mod tests {
         let test_ids = vec![0, 1, 2, 3, 4, 15, 16, 17, 31, 32, 33, 63, 64, 65];
 
         println!("Registration ID -> User ID -> Realm -> User Index");
-        println!("Constants: COORDINATOR_USER_TREE_HEIGHT={}, REALM_USER_TREE_HEIGHT={}, GROUP_REALM_HEIGHT={}",
-                 COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT);
+        println!(
+            "Constants: COORDINATOR_USER_TREE_HEIGHT={}, REALM_USER_TREE_HEIGHT={}, GROUP_REALM_HEIGHT={}",
+            COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT
+        );
 
         for &reg_id in &test_ids {
             let user_id = UserIdBitsStrategy5::get_user_id_from_registration_id(reg_id);
             let realm = user_id >> REALM_USER_TREE_HEIGHT;
             let user_index = user_id & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
 
-            println!("{:3} -> {:8} -> {:3} -> {:6} ({:020b})",
-                     reg_id, user_id, realm, user_index, user_index);
+            println!("{:3} -> {:8} -> {:3} -> {:6} ({:020b})", reg_id, user_id, realm, user_index, user_index);
         }
 
         // Verify inverse operation works
@@ -576,7 +571,7 @@ mod tests {
         // In realm 0, check user index distribution
         let id16 = UserIdBitsStrategy5::get_user_id_from_registration_id(16);
         let realm16 = id16 >> REALM_USER_TREE_HEIGHT;
-        let user_idx_0 = id0 & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+        let _user_idx_0 = id0 & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
         let user_idx_16 = id16 & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
 
         println!("RegID 16: realm={}, user_index={}", realm16, user_idx_16);
@@ -586,13 +581,15 @@ mod tests {
         let mut realm_0_user_ids = Vec::new();
 
         // Find all registration IDs that map to realm 0
-        for reg_id in 0..1024 {  // Test first 1024 IDs
+        for reg_id in 0..1024 {
+            // Test first 1024 IDs
             let user_id = UserIdBitsStrategy5::get_user_id_from_registration_id(reg_id);
             let realm = user_id >> REALM_USER_TREE_HEIGHT;
             if realm == 0 {
                 let user_index = user_id & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
                 realm_0_user_ids.push((reg_id, user_index));
-                if realm_0_user_ids.len() >= 10 { // Show first 10
+                if realm_0_user_ids.len() >= 10 {
+                    // Show first 10
                     break;
                 }
             }

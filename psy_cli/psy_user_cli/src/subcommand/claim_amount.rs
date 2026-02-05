@@ -1,6 +1,6 @@
 use anyhow::Result;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use psy_rust_sdk::provider::RpcProvider;
+use psy_provider::provider::RpcProvider;
 
 use crate::subcommand::args::ClaimAmountArgs;
 

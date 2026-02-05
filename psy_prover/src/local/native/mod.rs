@@ -7,26 +7,20 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::{ErrorObject, ErrorObjectOwned},
 };
-use parking_lot::{Mutex, RwLock};
-use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
+use parking_lot::RwLock;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::{
     args::{ContractCallArgs, ContractCallData},
     data::qhashout::QHashOut,
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_data::qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI};
+use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use psy_provider::provider::RpcProvider;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tokio::time::timeout;
 
-use crate::{
-    local::store::UserProverWorkerStore,
-    session::{WalletKeyPair, WalletSession},
-};
-
-type C = PoseidonGoldilocksConfig;
+use crate::session::{WalletKeyPair, WalletSession};
 type F = GoldilocksField;
-const D: usize = 2;
 
 #[rpc(server, client, namespace = "psy")]
 pub trait Rpc {

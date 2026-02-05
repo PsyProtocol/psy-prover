@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput;
-use crate::qdata::user_contract_state::UserContractState;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

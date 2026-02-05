@@ -1,26 +1,15 @@
 use std::{fs, path::Path, str::FromStr};
 
 use anyhow::Ok;
-use plonky2::{
-    field::goldilocks_field::GoldilocksField,
-    hash::{hashing::hash_n_to_hash_no_pad, poseidon::PoseidonPermutation},
-    plonk::config::PoseidonGoldilocksConfig,
-};
-use psy_common::{args::SignType, data::qhashout::QHashOut};
-use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
-use psy_config::network_constants::{GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
-use psy_data::{
-    config::store_config::{PsyHasher, C, D, F},
-    qblock::cmds::deploy_contract::QBCDeployContract,
-    qdata::{contract::ContractCodeDefinition, uuid::ContractUUID},
-};
-use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_common::data::qhashout::QHashOut;
+use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_data::config::store_config::{PsyHasher, C, D, F};
 use psy_prover::{
-    session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
+    session::gen_contract_deploy_and_circuits_for_functions,
     wallet::memory_wallet::{get_public_key_info, get_zk_fingerprint},
 };
-use psy_rust_sdk::{
+use psy_provider::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,
 };
@@ -54,14 +43,6 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     tracing::info!("generating circuits");
     let (_result_circuits, deploy_cmd) =
         gen_contract_deploy_and_circuits_for_functions::<C, D>(deployer, contract_state_tree_height as u8, &defs_array)?;
-    let sign_data = deployer
-        .0
-        .elements
-        .iter()
-        .chain(deploy_cmd.function_whitelist.iter().flat_map(|f| f.0.elements.iter()))
-        .cloned()
-        .collect::<Vec<_>>();
-    let sig_hash = QHashOut::<F>::from(hash_n_to_hash_no_pad::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(&sign_data));
 
     match args.output_path {
         Some(output_path) => {
@@ -85,7 +66,8 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
             })
             .await?;
         tracing::info!("contract deployed: {}", contract_uuid);
-        // tracing::info!("contract deployed: {:?}", ContractUUID::from_str(&contract_uuid)?);
+        // tracing::info!("contract deployed: {:?}",
+        // ContractUUID::from_str(&contract_uuid)?);
     }
 
     Ok(())

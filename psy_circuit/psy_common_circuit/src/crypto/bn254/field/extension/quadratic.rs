@@ -1,6 +1,5 @@
 use core::{
-    any::TypeId,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{Debug, Display, Formatter},
     iter::{Product, Sum},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
@@ -13,7 +12,7 @@ use plonky2::field::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::crypto::bn254::field::{bn128_base::Bn128Base, bn128_extension::Bn128ExtConstants};
+use crate::crypto::bn254::field::bn128_base::Bn128Base;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -173,6 +172,7 @@ impl QuadraticExtension<Bn128Base> {
 
 // Override try_inverse for Bn128Base to use correct nonresidue
 impl QuadraticExtension<Bn128Base> {
+    #[allow(dead_code)]
     fn try_inverse_bn128(&self) -> Option<Self> {
         if self.is_zero() {
             return None;
@@ -243,13 +243,13 @@ impl<F: Extendable<2> + PrimeField> PrimeField for QuadraticExtension<F> {
 }
 
 impl<F: Extendable<2>> Display for QuadraticExtension<F> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} + {}*u", self.0[0], self.0[1])
     }
 }
 
 impl<F: Extendable<2>> Debug for QuadraticExtension<F> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }

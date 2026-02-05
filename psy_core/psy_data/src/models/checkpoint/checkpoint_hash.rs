@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStore, KVQPair, KVQStoreAdapter, KVQStoreAdapterReader};
+use kvq::traits::{KVQPair, KVQStoreAdapter, KVQStoreAdapterReader};
 
 use crate::{
     config::store_config::PsyHash,

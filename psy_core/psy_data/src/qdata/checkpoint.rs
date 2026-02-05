@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{pm_jobs_completed_stats::PMJobsCompletedStats, pm_reward_commitment::PMRewardCommitment};
-use crate::{config::store_config::PsyFelt, qsync::coordinator::PsyCheckpointSyncInfoCompact};
+use crate::qsync::coordinator::PsyCheckpointSyncInfoCompact;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
@@ -490,13 +490,15 @@ impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable for C
     }
 }
 
-impl<F: RichField> psy_common::job::history_queue::HistoryQueueMetadataTagged for CheckpointSyncInfo<F> {
-    fn get_hq_metadata(&self) -> psy_common::job::history_queue::HistoryQueueMetadata {
-        // Use the same channel as the compact version for consistency
-        psy_common::job::history_queue::HistoryQueueMetadata {
-            channel_id: psy_config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-            checkpoint_id: self.compact.block_state.checkpoint_id,
-            item_id: self.compact.block_state.checkpoint_id,
-        }
-    }
-}
+// impl<F: RichField> psy_common::job::history_queue::HistoryQueueMetadataTagged
+// for CheckpointSyncInfo<F> {     fn get_hq_metadata(&self) ->
+// psy_common::job::history_queue::HistoryQueueMetadata {         // Use the
+// same channel as the compact version for consistency
+//         psy_common::job::history_queue::HistoryQueueMetadata {
+//             channel_id:
+// psy_config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+//             checkpoint_id: self.compact.block_state.checkpoint_id,
+//             item_id: self.compact.block_state.checkpoint_id,
+//         }
+//     }
+// }

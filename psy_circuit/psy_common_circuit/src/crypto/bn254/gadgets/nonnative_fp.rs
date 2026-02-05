@@ -1,17 +1,15 @@
 use std::{any::TypeId, marker::PhantomData};
 
-use num::{BigUint, Zero};
 use plonky2::{
     field::{
         extension::Extendable,
         types::{Field, PrimeField},
     },
-    gates::gate::Gate,
     hash::hash_types::RichField,
     iop::{
         generator::{GeneratedValues, SimpleGenerator},
         target::{BoolTarget, Target},
-        witness::{PartitionWitness, WitnessWrite},
+        witness::PartitionWitness,
     },
     plonk::circuit_builder::CircuitBuilder,
 };
@@ -24,10 +22,7 @@ use crate::{
         },
         secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint, GeneratedValuesBigUint, WitnessBigUint},
     },
-    u32::gadgets::{
-        arithmetic_u32::{CircuitBuilderU32, U32Target},
-        range_check::range_check_u32_circuit,
-    },
+    u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target},
 };
 
 fn ceil_div_usize(a: usize, b: usize) -> usize {
@@ -331,9 +326,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         self.select_nonnative(b, &one, &zero)
     }
 
-    fn pow_nonnative<FF: PrimeField>(&mut self, base: &NonNativeTarget<FF>, exponent: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
-        let mut result = self.one_nonnative::<FF>();
-        let mut base_power = base.clone();
+    fn pow_nonnative<FF: PrimeField>(&mut self, base: &NonNativeTarget<FF>, _exponent: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+        let mut _result = self.one_nonnative::<FF>();
+        let base_power = base.clone();
 
         let squared = self.mul_nonnative(&base_power, &base_power);
         squared
@@ -525,7 +520,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
 
         let diff_biguint = if a_mod_p >= b_mod_p { a_mod_p - b_mod_p } else { a_mod_p + &p - b_mod_p };
 
-        out_buffer.set_biguint_target(&self.diff.value, &diff_biguint);
+        out_buffer.set_biguint_target(&self.diff.value, &diff_biguint)?;
         Ok(())
     }
 }
@@ -596,7 +591,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
             let inv = x.inverse();
             inv.to_canonical_biguint()
         };
-        out_buffer.set_biguint_target(&self.inv, &inv_biguint);
+        out_buffer.set_biguint_target(&self.inv, &inv_biguint)?;
         Ok(())
     }
 }
@@ -604,7 +599,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
 #[cfg(test)]
 mod tests {
     use plonky2::{
-        field::types::{Field, PrimeField, Sample},
+        field::types::Field,
         iop::witness::PartialWitness,
         plonk::{
             circuit_data::CircuitConfig,
@@ -689,7 +684,7 @@ mod tests {
 
         let a_ff = FF::from_canonical_u64(300);
         let b_ff = FF::from_canonical_u64(100);
-        let diff_ff = a_ff - b_ff;
+        let _diff_ff = a_ff - b_ff;
 
         let a = builder.constant_nonnative(a_ff);
         let b = builder.constant_nonnative(b_ff);
@@ -996,9 +991,9 @@ mod tests {
         let target1 = builder.constant_nonnative(large_val1);
         let target2 = builder.constant_nonnative(large_val2);
 
-        let sum = builder.add_nonnative(&target1, &target2);
+        let _sum = builder.add_nonnative(&target1, &target2);
         let diff = builder.sub_nonnative(&target1, &target2);
-        let product = builder.mul_nonnative(&target1, &target2);
+        let _product = builder.mul_nonnative(&target1, &target2);
         let inv1 = builder.inv_nonnative(&target1);
 
         let diff_plus_b = builder.add_nonnative(&diff, &target2);

@@ -16,7 +16,7 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_prover::session::{build_claim_calls_for_multi_checkpoints_v2, ProofWithCheckpointV2, WalletSession, LAST_CLAIMED_CHECKPOINT_SLOT};
-use psy_rust_sdk::provider::RpcProvider;
+use psy_provider::provider::RpcProvider;
 
 use super::args::ClaimRewardV2Args;
 use crate::subcommand::key_utils::load_wallet_key_info;

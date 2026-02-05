@@ -1,10 +1,4 @@
-use plonky2::{
-    field::{
-        goldilocks_field::GoldilocksField,
-        types::{Field, PrimeField64},
-    },
-    hash::hash_types::RichField,
-};
+use plonky2::{field::types::PrimeField64, hash::hash_types::RichField};
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::VM_TYPE_STANRDARD_DAPEN_V1;
 use psy_crypto::hash::{traits::hasher::PoseidonHasher, utils::safe_hash_fixed_length};

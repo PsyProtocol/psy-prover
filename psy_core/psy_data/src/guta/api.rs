@@ -6,13 +6,7 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
 };
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{
-        drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
-        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
-    },
-};
+use psy_common::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
@@ -20,7 +14,7 @@ use psy_crypto::hash::{
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
+use super::{end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats};
 use crate::{
     dpn::event::PsyUserEventRecord,
     qblock::cmds::deploy_contract::{PsyContractSlotUpdates, PsySlotUpdate},
@@ -140,25 +134,26 @@ pub struct UserEndCapNonProofCoreInputQueueItem<F: RichField> {
     pub channel_id: u64,
 }
 
-impl<F: RichField> UserEndCapNonProofCoreInputQueueItem<F> {
-    pub fn get_verify_end_cap_simple_input(&self) -> VerifyEndCapSimpleStandardInput<F> {
-        VerifyEndCapSimpleStandardInput {
-            guta_stats: self.input.stats,
-            checkpoint_root: self.input.state_transition.checkpoint_tree_root_hash,
-            checkpoint_historical_merkle_proof: self.checkpoint_tree_proof.clone(),
-        }
-    }
-}
+// impl<F: RichField> UserEndCapNonProofCoreInputQueueItem<F> {
+//     pub fn get_verify_end_cap_simple_input(&self) ->
+// VerifyEndCapSimpleStandardInput<F> {         VerifyEndCapSimpleStandardInput
+// {             guta_stats: self.input.stats,
+//             checkpoint_root:
+// self.input.state_transition.checkpoint_tree_root_hash,
+// checkpoint_historical_merkle_proof: self.checkpoint_tree_proof.clone(),
+//         }
+//     }
+// }
 
-impl<F: RichField> DrainQueueMetadataTagged for UserEndCapNonProofCoreInputQueueItem<F> {
-    fn get_dq_metadata(&self) -> DrainQueueMetadata {
-        DrainQueueMetadata {
-            channel_id: self.channel_id,
-            checkpoint_id: self.checkpoint_id,
-            item_id: self.input.new_user_leaf.user_id.to_canonical_u64(),
-        }
-    }
-}
+// impl<F: RichField> DrainQueueMetadataTagged for
+// UserEndCapNonProofCoreInputQueueItem<F> {     fn get_dq_metadata(&self) ->
+// DrainQueueMetadata {         DrainQueueMetadata {
+//             channel_id: self.channel_id,
+//             checkpoint_id: self.checkpoint_id,
+//             item_id: self.input.new_user_leaf.user_id.to_canonical_u64(),
+//         }
+//     }
+// }
 impl<F: RichField> KVQSerializable for UserEndCapNonProofCoreInputQueueItem<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -288,18 +283,8 @@ impl<F: RichField> KVQSerializable for SubmitGUTARealmResultAPIQueueItem<F> {
     }
 }
 
-impl<F: RichField> DrainQueueMetadataTagged for SubmitGUTARealmResultAPIQueueItem<F> {
-    fn get_dq_metadata(&self) -> DrainQueueMetadata {
-        DrainQueueMetadata {
-            channel_id: self.guta_channel_id,
-            checkpoint_id: self.checkpoint_id,
-            item_id: self.realm_id,
-        }
-    }
-}
-
 impl<F: RichField> SubmitGUTARealmResultAPINoProofInput<F> {
-    pub fn to_queue_item(self, guta_channel_id: u64, realm_root_level: u32) -> SubmitGUTARealmResultAPIQueueItem<F> {
+    pub fn to_queue_item(self, guta_channel_id: u64, _realm_root_level: u32) -> SubmitGUTARealmResultAPIQueueItem<F> {
         SubmitGUTARealmResultAPIQueueItem {
             realm_id: self.realm_id,
             guta_channel_id: guta_channel_id,

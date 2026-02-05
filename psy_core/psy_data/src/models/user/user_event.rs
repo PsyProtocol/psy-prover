@@ -57,7 +57,7 @@ pub trait UserEventModelCore<
         let key_ids = events
             .iter()
             .enumerate()
-            .map(|(i, u)| EventTableIdKey::new(checkpoint_id, user_id, i as u64))
+            .map(|(i, _u)| EventTableIdKey::new(checkpoint_id, user_id, i as u64))
             .collect::<Vec<_>>();
         tracing::debug!("UserEventModelCore::set_events: {} {} {:?}", checkpoint_id, user_id, events);
         IDKVA::set_many_split_ref(store, &key_ids, events)?;

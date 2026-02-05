@@ -637,9 +637,9 @@ mod tests {
         let pk2 = VerifyingKey::from_sec1_bytes(&pk_bytes).unwrap();
         assert_eq!(pk, &pk2);
 
-        let mut pk_x_u32 = pk_x.chunks(4).map(|c| u32::from_be_bytes(c.try_into().unwrap())).collect::<Vec<_>>();
+        let mut _pk_x_u32 = pk_x.chunks(4).map(|c| u32::from_be_bytes(c.try_into().unwrap())).collect::<Vec<_>>();
         let pk_x_big = BigUint::from_bytes_be(&pk_x);
-        let pk_y_u32 = pk_y.chunks(4).map(|c| u32::from_be_bytes(c.try_into().unwrap())).collect::<Vec<_>>();
+        let _pk_y_u32 = pk_y.chunks(4).map(|c| u32::from_be_bytes(c.try_into().unwrap())).collect::<Vec<_>>();
         let pk_y_big = BigUint::from_bytes_be(&pk_y);
 
         let r = signature.r().to_bytes().to_vec();

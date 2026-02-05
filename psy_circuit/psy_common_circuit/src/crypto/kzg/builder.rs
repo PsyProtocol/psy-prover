@@ -1,14 +1,6 @@
 use std::marker::PhantomData;
 
-use plonky2::{
-    field::{
-        extension::Extendable,
-        types::{Field, PrimeField},
-    },
-    hash::hash_types::RichField,
-    iop::target::{BoolTarget, Target},
-    plonk::circuit_builder::CircuitBuilder,
-};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::BoolTarget, plonk::circuit_builder::CircuitBuilder};
 
 use super::{
     commitment::KZGCommitmentTarget,
@@ -18,22 +10,17 @@ use super::{
 use crate::crypto::{
     bn254::{
         curve::{g2::G2, G1},
-        field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension},
+        field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
         gadgets::{
             g1::{CircuitBuilderG1, G1AffineTarget},
-            g2::{CircuitBuilderG2, G2AffineTarget},
+            g2::G2AffineTarget,
             nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-            nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12},
-            nonnative_fp2::CircuitBuilderNonNativeExt2,
-            nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
+            nonnative_fp12::CircuitBuilderNonNativeExt12,
             pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
             windowed_mul::CircuitBuilderWindowedMul,
         },
     },
-    secp256k1::ecdsa::{
-        curve::curve_types::{AffinePoint, Curve},
-        gadgets::curve::{AffinePointTarget, CircuitBuilderCurve},
-    },
+    secp256k1::ecdsa::curve::curve_types::Curve,
 };
 
 pub trait CircuitBuilderKZG<F: RichField + Extendable<D>, const D: usize> {
@@ -455,7 +442,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D
         let mut quotient_evals = Vec::with_capacity(n);
         let mut denominators = Vec::with_capacity(n);
 
-        let mut special_indices: Vec<usize> = Vec::new();
         let mut is_special = Vec::with_capacity(n);
 
         // For each i: compute q_i = (y_i - p(z))/(ω^i - z)

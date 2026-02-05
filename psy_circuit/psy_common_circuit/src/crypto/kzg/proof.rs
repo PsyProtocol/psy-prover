@@ -1,22 +1,6 @@
-use plonky2::{
-    field::{
-        extension::Extendable,
-        types::{Field, PrimeField},
-    },
-    hash::hash_types::RichField,
-    plonk::circuit_builder::CircuitBuilder,
-};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 
-use crate::crypto::{
-    bn254::{
-        field::bn128_scalar::Bn128Scalar,
-        gadgets::{
-            g1::{CircuitBuilderG1, G1AffineTarget},
-            nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-        },
-    },
-    secp256k1::ecdsa::curve::curve_types::AffinePoint,
-};
+use crate::crypto::{bn254::gadgets::g1::G1AffineTarget, secp256k1::ecdsa::curve::curve_types::AffinePoint};
 
 #[derive(Clone, Debug)]
 pub struct KZGProofTarget<F: RichField + Extendable<D>, const D: usize> {

@@ -27,13 +27,9 @@ use psy_crypto::{
 };
 
 use crate::{
-    builder::{
-        comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderPsyCommonGates,
-        verify::CircuitBuilderVerifyProofHelpers,
-    },
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderPsyCommonGates, verify::CircuitBuilderVerifyProofHelpers},
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
-    traits::ToTargets,
     treeprover::traits::TreeProverAggCircuit,
 };
 

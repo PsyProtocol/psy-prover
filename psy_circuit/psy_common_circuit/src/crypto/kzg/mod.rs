@@ -14,11 +14,9 @@ pub use setup::{KZGParams, KZGSetup};
 #[cfg(test)]
 mod tests {
     use builder::CircuitBuilderKZGHelpers;
-    use num::{BigUint, Zero};
     use plonky2::{
         field::types::Field,
-        hash::hash_types::RichField,
-        iop::witness::{PartialWitness, WitnessWrite},
+        iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder,
             circuit_data::CircuitConfig,
@@ -27,18 +25,10 @@ mod tests {
     };
 
     use super::*;
-    use crate::crypto::{
-        bn254::{
-            curve::{g1::G1, g2::G2},
-            field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
-            gadgets::{
-                g1::CircuitBuilderG1,
-                g2::CircuitBuilderG2,
-                nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-                pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
-            },
-        },
-        secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint},
+    use crate::crypto::bn254::{
+        curve::g2::G2,
+        field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
+        gadgets::{g1::CircuitBuilderG1, nonnative_fp::CircuitBuilderNonNative, pairing::CircuitBuilderCurveG2},
     };
 
     const D: usize = 2;
@@ -190,7 +180,7 @@ mod tests {
 
             // Evaluate at a point outside the domain
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
-            let result = builder.kzg_evaluate_at_point(&evaluations, &point, &fft_settings);
+            let _result = builder.kzg_evaluate_at_point(&evaluations, &point, &fft_settings);
 
             // The exact result depends on the Lagrange interpolation
             // Just verify the circuit builds and proves
@@ -288,7 +278,7 @@ mod tests {
 
             let lagrange_g1 = params.lagrange_g1.into_iter().map(|p| builder.constant_g1_affine(p)).collect::<Vec<_>>();
 
-            let commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
+            let _commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
 
             let data = builder.build::<C>();
             let pw = PartialWitness::new();
@@ -313,10 +303,10 @@ mod tests {
         #[test]
         fn test_powers_of_tau_consistency() {
             let tau = Bn128Scalar::from_canonical_u64(7);
-            let params = KZGSetup::new_trusted_setup(tau, 4);
+            let _params = KZGSetup::new_trusted_setup(tau, 4);
 
             use crate::crypto::{bn254::curve::g1::G1, secp256k1::ecdsa::curve::curve_types::Curve};
-            let g1_gen = G1::GENERATOR_AFFINE;
+            let _g1_gen = G1::GENERATOR_AFFINE;
 
             // First Lagrange basis element L_0(τ) * G is not the generator
             // since L_0(τ) = (τ^n - 1) / (n * (τ - 1))
@@ -375,7 +365,7 @@ mod tests {
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
             ];
 
-            let commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
+            let _commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
 
             let data = builder.build::<C>();
             let pw = PartialWitness::new();
@@ -584,7 +574,7 @@ mod tests {
 
             let commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
-            let (correct_eval, correct_proof) = builder.kzg_create_opening_proof(&evaluations, &point, &lagrange_g1, &fft_settings);
+            let (_correct_eval, correct_proof) = builder.kzg_create_opening_proof(&evaluations, &point, &lagrange_g1, &fft_settings);
 
             // Create an incorrect evaluation
             let wrong_eval = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(999));

@@ -1,7 +1,7 @@
 use kvq::adapters::standard::KVQStandardAdapter;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
-    hash::{hash_types::RichField, poseidon::PoseidonHash},
+    hash::poseidon::PoseidonHash,
     plonk::{circuit_data::VerifierOnlyCircuitData, config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::data::qhashout::QHashOut;
@@ -9,10 +9,7 @@ use psy_config::network_constants::{
     CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_EVENT_TREE_HEIGHT,
     GLOBAL_USER_TREE_HEIGHT, GLOBAL_WITHDRAWAL_TREE_HEIGHT,
 };
-use psy_crypto::hash::{
-    merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    traits::hasher::PoseidonHasher,
-};
+use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 
 use crate::{
     dpn::event::PsyUserEventRecord,
@@ -27,10 +24,8 @@ use crate::{
             key::KVQMerkleNodeKey,
             model::{KVQFixedConfigMerkleTreeModel, KVQMerkleTreeModel, KVQSemiFixedConfigMerkleTreeModel},
         },
-        realm_root_version::RealmRootVersionModel,
         realm_status::RealmStatusModel,
         register_user_metadata::RegisterUserMetaDataModel,
-        snapshot::RealmSnapshotModel,
         staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore},
         user::{user_event::UserEventModel, user_leaf::UserLeafModel},
         user_endcap_metadata::UserEndcapMetaDataModel,
@@ -227,7 +222,7 @@ pub type UserEventTreeStore<S, F = PsyFelt, H = PsyHasher, IDKVA = KVQStandardAd
 
 pub type BaseContractStateTreeStore<
     S,
-    F: RichField = PsyFelt,
+    F = PsyFelt,
     H = PsyHasher,
     IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QHashOut<F>>,
 > = KVQMerkleTreeModel<USER_CONTRACT_STATE_TREE_TABLE_TYPE, false, S, IDKVA, QHashOut<F>, H>;

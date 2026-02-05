@@ -1,6 +1,6 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::data::qhashout::QHashOut;
-use psy_provider::{provider::RpcProvider, request::DPNSoftwareDefinedSignatureInput};
+use psy_provider::request::DPNSoftwareDefinedSignatureInput;
 use psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput;
 
 #[derive(Debug)]

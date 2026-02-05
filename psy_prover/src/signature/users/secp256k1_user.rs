@@ -11,7 +11,6 @@ use psy_crypto::signature::{
     zk::data::ZKPublicKeyInfo,
 };
 use psy_data::config::store_config::{PsyPlonky2Config, PsyProof};
-use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use crate::{

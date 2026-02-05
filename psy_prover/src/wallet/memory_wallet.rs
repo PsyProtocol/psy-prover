@@ -2,25 +2,17 @@ use std::sync::Arc;
 
 use anyhow::bail;
 use dashmap::DashMap;
-use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
     hash::{
         hash_types::{HashOut, RichField},
         poseidon::{PoseidonHash, PoseidonPermutation},
     },
-    plonk::{
-        config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
-        proof::ProofWithPublicInputs,
-    },
+    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
-use psy_common_circuit::circuits::{
-    secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
-};
-use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::{
-    hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
+    hash::traits::qhashable::QFieldHashable,
     signature::{
         secp256k1::{
             core::PsyCompressedSecp256K1Signature,
@@ -30,16 +22,8 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
-use psy_provider::provider::RpcProvider;
-use psy_ups_circuit::{
-    circuit_manager,
-    signature::software_defined::{DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget},
-};
-use psy_vm::{
-    dpn::vm::def::DPNFunctionCircuitDefinition,
-    ups::{circuit_manager::UPSCircuitManager, state_reader::StateReader},
-    vm::cfc_input::DapenContractFunctionCircuitInput,
-};
+use psy_ups_circuit::signature::software_defined::{DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget};
+use psy_vm::ups::{circuit_manager::UPSCircuitManager, state_reader::StateReader};
 
 use crate::signature::{
     context::SignContext,
@@ -287,18 +271,18 @@ impl PsyMemoryWallet {
 
     pub fn sdc_sign_for_public_key<S: PsyReadCommandProcessorSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync>(
         &self,
-        state_reader: &mut StateReader<F, D, S>,
-        public_key: QHashOut<F>,
-        sig_hash: QHashOut<F>,
+        _state_reader: &mut StateReader<F, D, S>,
+        _public_key: QHashOut<F>,
+        _sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         unimplemented!()
     }
 
     pub fn sdc_sign_with_private_key<S: PsyReadCommandProcessorSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync>(
         &self,
-        state_reader: &mut StateReader<F, D, S>,
-        private_key: QHashOut<F>,
-        sig_hash: QHashOut<F>,
+        _state_reader: &mut StateReader<F, D, S>,
+        _private_key: QHashOut<F>,
+        _sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         unimplemented!()
     }
@@ -375,28 +359,28 @@ impl PsyMemoryWallet {
     pub fn get_psy_software_defined_circuit(
         &self,
         fingerprint: &QHashOut<F>,
-    ) -> Option<dashmap::mapref::one::Ref<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
+    ) -> Option<dashmap::mapref::one::Ref<'_, QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
         self.psy_software_defined_circuits.get(fingerprint)
     }
 
     pub fn get_psy_software_defined_circuit_mut(
         &self,
         fingerprint: &QHashOut<F>,
-    ) -> Option<dashmap::mapref::one::RefMut<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
+    ) -> Option<dashmap::mapref::one::RefMut<'_, QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
         self.psy_software_defined_circuits.get_mut(fingerprint)
     }
 
     pub fn get_plonky2_software_defined_circuit(
         &self,
         fingerprint: &QHashOut<F>,
-    ) -> Option<dashmap::mapref::one::Ref<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
+    ) -> Option<dashmap::mapref::one::Ref<'_, QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
         self.plonky2_software_defined_circuits.get(fingerprint)
     }
 
     pub fn get_plonky2_software_defined_circuit_mut(
         &self,
         fingerprint: &QHashOut<F>,
-    ) -> Option<dashmap::mapref::one::RefMut<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
+    ) -> Option<dashmap::mapref::one::RefMut<'_, QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
         self.plonky2_software_defined_circuits.get_mut(fingerprint)
     }
 }
@@ -505,9 +489,6 @@ mod tests {
 
     #[test]
     fn test_memory_wallet_secp256k1_sign() -> Result<()> {
-        use psy_common::data::base_types::hash256::Hash256;
-        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
-
         // Create a test private key and signature hash
         let private_key = QHashOut::<F>::from_str("17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")?;
         let sig_hash = QHashOut::<F>::from_str("83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186")?;

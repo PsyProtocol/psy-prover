@@ -1,8 +1,7 @@
 use std::borrow::Cow;
 
-use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
-    field::{extension::Extendable, goldilocks_field::GoldilocksField},
+    field::goldilocks_field::GoldilocksField,
     hash::hash_types::RichField,
     plonk::{
         config::{GenericConfig, PoseidonGoldilocksConfig},
@@ -24,15 +23,12 @@ use psy_crypto::{
 };
 use psy_data::{
     guta::{api::SubmitGUTARealmResultAPINoProofInput, end_cap_input::SubmitUserEndCapNonProofInput},
-    models::user::contract_state_tree::UserContractStateTreeId,
-    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
+    qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
-        user_contract_state::UserContractState,
     },
-    qstore::imm::{cache::PsyCmdStoreWithCache, cmd_processor::PsyReadCommandProcessorSync},
     ups::{
         start_step::UPSStartStepInput,
         start_step_register_user::UPSStartStepRegisterUserInput,
@@ -42,10 +38,7 @@ use psy_data::{
 };
 // Use types from psy_vm
 pub use psy_vm::ups::signature::{DPNSoftwareDefinedSignatureInput, Plonky2SoftwareDefinedSignatureInput};
-use psy_vm::{
-    dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition},
-    vm::cfc_input::DapenContractFunctionCircuitInput,
-};
+use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
 use ts_rs::TS;

@@ -9,19 +9,12 @@ use plonky2::plonk::{
     config::{GenericConfig, PoseidonGoldilocksConfig},
     proof::ProofWithPublicInputs,
 };
-use psy_common::data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
-use psy_common_circuit::circuits::{
-    secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner,
-    zk_signature3::core::PsyBasicZKSignatureCircuit,
-};
+use psy_common::data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut};
+use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_crypto::{
-    common::witnesses::qrecursion::{
-        header::QRecursionAggStandardHeader,
-        proof_data::{QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
-    },
+    common::witnesses::qrecursion::{header::QRecursionAggStandardHeader, proof_data::QStandardBinaryTreeCircuitType},
     hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    signature,
-    signature::{secp256k1, secp256k1::core::PsyCompressedSecp256K1Signature},
+    signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
 use psy_data::{
     qdata::contract::ContractCodeDefinition,
@@ -37,19 +30,15 @@ use psy_data::{
     },
 };
 use psy_provider::{
-    provider::{LocalCommonCircuitsData, NetworkConfig, QCommonCircuitData, RpcProvider},
+    provider::{LocalCommonCircuitsData, QCommonCircuitData, RpcProvider},
     request::{DPNSoftwareDefinedSignatureInput, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest},
 };
-use psy_ups_circuit::{
-    circuit_manager::core::PsyUPSStepCircuitManager,
-    signature::software_defined::{DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget},
-};
+use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_vm::{
     dpn::contract::cfc_code_definition_to_dapen_fc,
     ups::{circuit_manager::UPSCircuitManager, signature::Plonky2SoftwareDefinedSignatureInput},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
-use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::local::native::DPNFunctionCircuitDefinition;
 
@@ -447,7 +436,7 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         })
     }
 
-    async fn register_contract_circuits(&self, contract_id: u64, contract_code: ContractCodeDefinition) -> Result<(), ErrorObjectOwned> {
+    async fn register_contract_circuits(&self, contract_id: u64, _contract_code: ContractCodeDefinition) -> Result<(), ErrorObjectOwned> {
         self.register_contract_circuits_inner(contract_id)
             .await
             .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))
@@ -781,14 +770,14 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
 
     async fn register_dpn_software_defined_circuit(
         &self,
-        request: QRegisterDPNSoftwareDefinedCircuitRPCRequest,
+        _request: QRegisterDPNSoftwareDefinedCircuitRPCRequest,
     ) -> Result<QHashOut<F>, ErrorObjectOwned> {
         todo!("register_dpn_software_defined_circuit");
     }
 
     async fn register_plonky2_software_defined_circuit(
         &self,
-        request: QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
+        _request: QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
     ) -> Result<QHashOut<F>, ErrorObjectOwned> {
         todo!("register_plonky2_software_defined_circuit");
         // let input = SoftwareDefinedSignatureInput::Psy(input);

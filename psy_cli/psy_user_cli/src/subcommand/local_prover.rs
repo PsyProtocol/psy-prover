@@ -1,5 +1,6 @@
 use psy_common::args::ProverArgs;
 
+#[allow(dead_code)]
 pub async fn run(args: ProverArgs) -> anyhow::Result<()> {
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::select! {

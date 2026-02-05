@@ -4,9 +4,8 @@ use std::{
 };
 
 use anyhow::Result;
-use psy_rust_sdk::wallet::secp_wallet::Wallet;
+use psy_provider::wallet::secp_wallet::Wallet;
 use rpassword::read_password;
-use tracing::info;
 
 use super::{
     args::{WalletArgs, WalletCommands},

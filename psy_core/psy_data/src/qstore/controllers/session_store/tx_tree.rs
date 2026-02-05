@@ -4,7 +4,7 @@ use kvq::{
     adapters::standard::KVQStandardAdapter,
     traits::{KVQSerializable, KVQStoreAdapter},
 };
-use plonky2::{hash::hash_types::RichField, plonk::config::AlgebraicHasher};
+use plonky2::hash::hash_types::RichField;
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},

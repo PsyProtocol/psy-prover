@@ -5,7 +5,7 @@ use core::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
-use num::{bigint::BigUint, Integer, One};
+use num::{bigint::BigUint, One};
 use plonky2::field::types::{Field, PrimeField, Sample};
 use serde::{Deserialize, Serialize};
 
@@ -386,11 +386,8 @@ impl From<bool> for Bn128Scalar {
 
 #[cfg(test)]
 mod tests {
-    use num::{BigUint, One as NumOne, Zero as NumZero};
-    use plonky2::field::{
-        ops::Square,
-        types::{Field, PrimeField, Sample},
-    };
+    use num::BigUint;
+    use plonky2::field::{ops::Square, types::Field};
 
     use super::*;
     use crate::test_field_arithmetic;

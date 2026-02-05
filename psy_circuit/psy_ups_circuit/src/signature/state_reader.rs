@@ -1,61 +1,19 @@
 use std::fmt::Debug;
 
-use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
-    field::{
-        extension::Extendable,
-        goldilocks_field::GoldilocksField,
-        types::{Field, PrimeField64},
-    },
-    gates::gate::GateRef,
+    field::extension::Extendable,
     hash::{
-        hash_types::{HashOut, HashOutTarget, RichField},
+        hash_types::{HashOutTarget, RichField},
         poseidon::PoseidonHash,
     },
-    iop::{
-        target::Target,
-        witness::{PartialWitness, WitnessWrite},
-    },
-    plonk::{
-        circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
-        config::{AlgebraicHasher, GenericConfig},
-        proof::ProofWithPublicInputs,
-    },
+    iop::{target::Target, witness::PartialWitness},
+    plonk::circuit_builder::CircuitBuilder,
 };
-use psy_common::data::qhashout::QHashOut;
-use psy_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore},
-    circuits::traits::qstandard::QStandardCircuit,
-    hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
-    proof_minifier::pm_chain::PsyProofMinifierChain,
-    u32::gates::comparison::ComparisonGate,
-};
-use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
-use psy_crypto::{
-    hash::{
-        merkle::core::MerkleProofCore,
-        traits::hasher::{MerkleHasher, MerkleZeroHasher},
-    },
-    signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
-};
-use psy_data::{
-    config::store_config::PsyHasher,
-    models::user::contract_state_tree::UserContractStateTreeId,
-    qdata::user_contract_state::UserContractState,
-    qstore::imm::{
-        cache::PsyCmdStoreWithCache,
-        cmd::{QSRCmdGetContractLeafData, QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof},
-        cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
-    },
-};
+use psy_common_circuit::hash::merkle::gadgets::merkle_proof::MerkleProofGadget;
 use psy_network_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
-use psy_vm::{
-    dpn::ops::state_cmd::data::{
-        DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
-        DPNStateCmdGetSelfUserExternalContractStateSlotHash,
-    },
-    ups::state_reader::StateReader,
+use psy_vm::dpn::ops::state_cmd::data::{
+    DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
+    DPNStateCmdGetSelfUserExternalContractStateSlotHash,
 };
 
 #[derive(Debug)]

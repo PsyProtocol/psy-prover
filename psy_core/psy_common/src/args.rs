@@ -2,13 +2,8 @@ use std::collections::HashMap;
 
 use anyhow;
 use clap::{Args, Parser, ValueEnum};
-use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
 use ts_rs::TS;
-
-pub use crate::job::info::{JobInfo, JobLocation};
-use crate::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
 #[ts(export)]
@@ -227,10 +222,4 @@ pub struct TestArgs {
 pub struct RealmJobData {
     pub id: u32,
     pub checkpoints: HashMap<u64, Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkerJobTracker {
-    pub coordinator: HashMap<u64, Vec<String>>,
-    pub realms: Vec<RealmJobData>,
 }

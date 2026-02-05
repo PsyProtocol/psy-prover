@@ -1,5 +1,3 @@
-use std::{collections::HashMap, str::FromStr};
-
 use dashmap::DashMap;
 use plonky2::{
     field::{
@@ -13,17 +11,14 @@ use plonky2::{
     },
 };
 use psy_common::{
-    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType, WalletSessionArgs},
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData},
     data::qhashout::QHashOut,
-    job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
-    traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
-    JobInfo, JobLocation,
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_config::{
-    network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
-    MINING_REWARDS_CONTRACT_ID, PSY_NETWORK_MAGIC,
+    network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+    PSY_NETWORK_MAGIC,
 };
 use psy_crypto::{
     common::user_id::get_registration_id_from_user_id,
@@ -34,20 +29,17 @@ use psy_crypto::{
     signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::store_config::{PsyHash, PsyHasher},
+    config::store_config::PsyHasher,
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
-    qblock::cmds::deploy_contract::{get_code_root_by_code_hashes, QBCDeployContract, QContractABI},
-    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState},
+    qblock::cmds::deploy_contract::{get_code_root_by_code_hashes, QBCDeployContract},
+    qdata::{contract::ContractCodeDefinition, user_contract_state::UserContractState},
     qstore::{
         controllers::{
             proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
             session_info::SessionCircuitInfoStore,
         },
         imm::{
-            cmd::{
-                QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot, QSRMerkleCmd,
-                QSRMerkleCmdGetUserTreeMerkleProof,
-            },
+            cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData},
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
         },
     },
@@ -60,32 +52,22 @@ use psy_data::{
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 pub use psy_provider::session::TxStatus;
 use psy_provider::{
-    provider::{NetworkConfig, ProveProxyRpcProvider, QUserRpcProvider, RpcProvider},
+    provider::{ProveProxyRpcProvider, QUserRpcProvider, RpcProvider},
     request::{DPNSoftwareDefinedSignatureInput, QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
-use psy_ups_circuit::{
-    circuit_manager::core::PsyUPSStepCircuitManager,
-    session::UserProvingSessionManager,
-    signature::software_defined::{DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget},
-};
+use psy_ups_circuit::{circuit_manager::core::PsyUPSStepCircuitManager, session::UserProvingSessionManager};
 use psy_vm::{
     dpn::{
-        contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
+        contract::{dapen_fc_to_cfc_code_definition, hash_dpn_function},
         vm::def::DPNFunctionCircuitDefinition,
     },
-    ups::{
-        circuit_manager::{PortableQTreeRecursion, UPSCircuitManager},
-        signature::Plonky2SoftwareDefinedSignatureInput,
-        state_reader::StateReader,
-    },
+    ups::{circuit_manager::UPSCircuitManager, signature::Plonky2SoftwareDefinedSignatureInput, state_reader::StateReader},
 };
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 type UserEndCapUUID = String;
 
 use crate::{
-    session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint},
     signature::{
         context::SignContext,
         traits::{SignatureCircuitInfo, SignatureResult},
@@ -93,18 +75,20 @@ use crate::{
     wallet::memory_wallet::PsyMemoryWallet,
 };
 
-trait UPSWithTreeRecursion<C: GenericConfig<D>, const D: usize>: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync
-where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
-{
-}
+// trait UPSWithTreeRecursion<C: GenericConfig<D>, const D: usize>:
+// UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync where
+//     C::Hasher: AlgebraicHasher<C::F> +
+// MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> +
+// MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>, {
+// }
 
-impl<T, C: GenericConfig<D>, const D: usize> UPSWithTreeRecursion<C, D> for T
-where
-    T: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync,
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
-{
-}
+// impl<T, C: GenericConfig<D>, const D: usize> UPSWithTreeRecursion<C, D> for T
+// where
+//     T: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync,
+//     C::Hasher: AlgebraicHasher<C::F> +
+// MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> +
+// MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>, {
+// }
 
 pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
     deployer: QHashOut<C::F>,
@@ -417,7 +401,6 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        let cmd_store = user_session_mgr.lps.get_cmd_store();
         for contract_call_arg in contract_call_args {
             tracing::info!(
                 "prove contract call at contract {}, method {}",
@@ -562,7 +545,7 @@ impl WalletSession {
         call_data: &DPNSoftwareDefinedCallData,
         fingerprint: QHashOut<F>,
         user_session_mgr: &mut UserProvingSessionManager<F, PoseidonHash, RpcProvider, C, D>,
-        mut sign_context: SignContext,
+        sign_context: SignContext,
     ) -> anyhow::Result<SignContext> {
         let sdc = self
             .wallet
@@ -664,110 +647,119 @@ impl WalletSession {
         Ok(contract_uuid)
     }
 
-    pub async fn get_claim_rewards_call_args(&self, mut job_infos: Vec<JobInfo>) -> anyhow::Result<Vec<ContractCallArgs>> {
-        job_infos.retain(|job_info| job_info.job_id.circuit_type.is_guta_job());
+    // pub async fn get_claim_rewards_call_args(&self, mut job_infos: Vec<JobInfo>)
+    // -> anyhow::Result<Vec<ContractCallArgs>> {     job_infos.
+    // retain(|job_info| job_info.job_id.circuit_type.is_guta_job());
 
-        if job_infos.is_empty() {
-            tracing::info!("No valid GUTA jobs found after filtering");
-            return Ok(Vec::new());
-        }
+    //     if job_infos.is_empty() {
+    //         tracing::info!("No valid GUTA jobs found after filtering");
+    //         return Ok(Vec::new());
+    //     }
 
-        let mut checkpoint_jobs: HashMap<u64, Vec<VariableHeightRewardMerkleProof>> = HashMap::new();
+    //     let mut checkpoint_jobs: HashMap<u64,
+    // Vec<VariableHeightRewardMerkleProof>> = HashMap::new();
 
-        match self.st_provider.get_job_proofs(job_infos).await {
-            Ok(results) => {
-                for (root_job_id, job_proof) in results {
-                    let actual_checkpoint_id = root_job_id.goal_id;
-                    checkpoint_jobs
-                        .entry(actual_checkpoint_id)
-                        .or_insert_with(Vec::new)
-                        .push(job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT));
-                }
-            }
-            Err(e) => {
-                tracing::warn!("Failed to get job proofs: {}", e);
-            }
-        }
+    //     match self.st_provider.get_job_proofs(job_infos).await {
+    //         Ok(results) => {
+    //             for (root_job_id, job_proof) in results {
+    //                 let actual_checkpoint_id = root_job_id.goal_id;
+    //                 checkpoint_jobs
+    //                     .entry(actual_checkpoint_id)
+    //                     .or_insert_with(Vec::new)
+    //
+    // .push(job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT));
+    // }         }
+    //         Err(e) => {
+    //             tracing::warn!("Failed to get job proofs: {}", e);
+    //         }
+    //     }
 
-        if checkpoint_jobs.is_empty() {
-            tracing::info!("No valid checkpoints with rewards to claim");
-            return Ok(Vec::new());
-        }
+    //     if checkpoint_jobs.is_empty() {
+    //         tracing::info!("No valid checkpoints with rewards to claim");
+    //         return Ok(Vec::new());
+    //     }
 
-        let mut sorted_checkpoints: Vec<_> = checkpoint_jobs.keys().copied().collect();
-        sorted_checkpoints.sort();
+    //     let mut sorted_checkpoints: Vec<_> =
+    // checkpoint_jobs.keys().copied().collect();     sorted_checkpoints.sort();
 
-        let mut all_proofs_with_checkpoints = Vec::new();
+    //     let mut all_proofs_with_checkpoints = Vec::new();
 
-        for &checkpoint_id in &sorted_checkpoints {
-            let proofs = checkpoint_jobs.get(&checkpoint_id).unwrap();
+    //     for &checkpoint_id in &sorted_checkpoints {
+    //         let proofs = checkpoint_jobs.get(&checkpoint_id).unwrap();
 
-            let checkpoint_leaf = self.st_provider.get_checkpoint_leaf_data(checkpoint_id).await?;
-            let fees_collected = checkpoint_leaf.stats.guta_fees_collected.to_canonical_u64();
-            let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
+    //         let checkpoint_leaf =
+    // self.st_provider.get_checkpoint_leaf_data(checkpoint_id).await?;
+    //         let fees_collected =
+    // checkpoint_leaf.stats.guta_fees_collected.to_canonical_u64();         let
+    // gutas_completed =
+    // checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
 
-            let proposed_reward = if gutas_completed > 0 { fees_collected / gutas_completed } else { 0u64 };
+    //         let proposed_reward = if gutas_completed > 0 { fees_collected /
+    // gutas_completed } else { 0u64 };
 
-            if proposed_reward == 0 {
-                tracing::warn!(
-                    "Skipping checkpoint {} due to zero reward (fees_collected={}, gutas_completed={})",
-                    checkpoint_id,
-                    fees_collected,
-                    gutas_completed
-                );
-                continue;
-            }
+    //         if proposed_reward == 0 {
+    //             tracing::warn!(
+    //                 "Skipping checkpoint {} due to zero reward
+    // (fees_collected={}, gutas_completed={})",                 checkpoint_id,
+    //                 fees_collected,
+    //                 gutas_completed
+    //             );
+    //             continue;
+    //         }
 
-            tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, proofs.len());
-            for proof in proofs {
-                all_proofs_with_checkpoints.push(ProofWithCheckpoint {
-                    checkpoint_id,
-                    proof: proof.clone(),
-                    proposed_reward,
-                });
-            }
-        }
+    //         tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id,
+    // proposed_reward, proofs.len());         for proof in proofs {
+    //             all_proofs_with_checkpoints.push(ProofWithCheckpoint {
+    //                 checkpoint_id,
+    //                 proof: proof.clone(),
+    //                 proposed_reward,
+    //             });
+    //         }
+    //     }
 
-        if all_proofs_with_checkpoints.is_empty() {
-            tracing::info!("No checkpoints with valid rewards to claim");
-            return Ok(Vec::new());
-        }
+    //     if all_proofs_with_checkpoints.is_empty() {
+    //         tracing::info!("No checkpoints with valid rewards to claim");
+    //         return Ok(Vec::new());
+    //     }
 
-        let mut all_contract_calls = build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints).await;
+    //     let mut all_contract_calls =
+    // build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints).await;
 
-        if all_contract_calls.is_empty() {
-            tracing::info!("No checkpoints with valid rewards to claim");
-            return Ok(Vec::new());
-        }
+    //     if all_contract_calls.is_empty() {
+    //         tracing::info!("No checkpoints with valid rewards to claim");
+    //         return Ok(Vec::new());
+    //     }
 
-        let last_checkpoint = all_proofs_with_checkpoints.last().unwrap().checkpoint_id;
+    //     let last_checkpoint =
+    // all_proofs_with_checkpoints.last().unwrap().checkpoint_id;
 
-        all_contract_calls.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
-            method_name: "end_session".to_string(),
-            inputs: vec![last_checkpoint],
-        });
+    //     all_contract_calls.push(ContractCallArgs {
+    //         contract_id: MINING_REWARDS_CONTRACT_ID as u64,
+    //         method_name: "end_session".to_string(),
+    //         inputs: vec![last_checkpoint],
+    //     });
 
-        all_contract_calls.push(ContractCallArgs {
-            contract_id: TOKEN_CONTRACT_ID as u64,
-            method_name: "simple_claim_pow_rewards".to_string(),
-            inputs: vec![last_checkpoint],
-        });
+    //     all_contract_calls.push(ContractCallArgs {
+    //         contract_id: TOKEN_CONTRACT_ID as u64,
+    //         method_name: "simple_claim_pow_rewards".to_string(),
+    //         inputs: vec![last_checkpoint],
+    //     });
 
-        if all_contract_calls.is_empty() {
-            tracing::info!("No rewards to claim");
-            return Ok(Vec::new());
-        }
+    //     if all_contract_calls.is_empty() {
+    //         tracing::info!("No rewards to claim");
+    //         return Ok(Vec::new());
+    //     }
 
-        tracing::info!("Executing {} contract calls in single transaction", all_contract_calls.len());
-        Ok(all_contract_calls)
-    }
+    //     tracing::info!("Executing {} contract calls in single transaction",
+    // all_contract_calls.len());     Ok(all_contract_calls)
+    // }
 
-    pub async fn claim_rewards(&self, user_pk_hash: QHashOut<F>, job_infos: Vec<JobInfo>) -> anyhow::Result<()> {
-        let contract_call_args = self.get_claim_rewards_call_args(job_infos).await?;
-        self.exec_contract_call(user_pk_hash, ContractCallData::new(contract_call_args)).await?;
-        Ok(())
-    }
+    // pub async fn claim_rewards(&self, user_pk_hash: QHashOut<F>, job_infos:
+    // Vec<JobInfo>) -> anyhow::Result<()> {     let contract_call_args =
+    // self.get_claim_rewards_call_args(job_infos).await?;
+    //     self.exec_contract_call(user_pk_hash,
+    // ContractCallData::new(contract_call_args)).await?;     Ok(())
+    // }
 
     pub async fn get_zk_public_key(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         self.wallet.get_zk_pk_info(private_key).await

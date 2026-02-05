@@ -1,22 +1,15 @@
 use std::marker::PhantomData;
 
-use plonky2::{
-    field::{extension::Extendable, types::Field},
-    hash::hash_types::RichField,
-    iop::target::{BoolTarget, Target},
-    plonk::circuit_builder::CircuitBuilder,
-};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::BoolTarget, plonk::circuit_builder::CircuitBuilder};
 
 use crate::crypto::bn254::{
-    curve::{G2Affine, G2Projective},
-    field::{bn128_base::Bn128Base, extension::quadratic::QuadraticExtension},
+    curve::G2Affine,
+    field::bn128_base::Bn128Base,
     gadgets::{
         nonnative_fp::CircuitBuilderNonNative,
         nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
     },
 };
-
-type Fp2 = QuadraticExtension<Bn128Base>;
 
 #[derive(Clone, Debug)]
 pub struct G2AffineTarget<F: RichField + Extendable<D>, const D: usize> {
@@ -205,14 +198,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderG2<F, D> for Ci
 #[cfg(test)]
 mod tests {
     use plonky2::{
-        iop::witness::{PartialWitness, WitnessWrite},
-        plonk::{
-            circuit_data::CircuitConfig,
-            config::{GenericConfig, PoseidonGoldilocksConfig},
-        },
+        field::types::Field,
+        iop::witness::PartialWitness,
+        plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
     };
 
     use super::*;
+    use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;

@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
+use kvq::traits::{KVQStoreAdapter, KVQStoreAdapterReader};
 
 use crate::{
     models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE,

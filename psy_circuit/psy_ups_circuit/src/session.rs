@@ -2,7 +2,6 @@ use plonky2::{
     field::{
         extension::Extendable,
         goldilocks_field::GoldilocksField,
-        packed::PackedField,
         types::{Field, PrimeField64},
     },
     hash::hash_types::{HashOut, RichField},
@@ -13,9 +12,7 @@ use plonky2::{
     },
 };
 use psy_common::{data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
-use psy_common_circuit::{
-    circuits::traits::qstandard::QStandardCircuit, treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager,
-};
+use psy_common_circuit::treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager;
 use psy_config::{
     network_constants::{
         DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID,
@@ -34,28 +31,25 @@ use psy_crypto::{
     hash::{
         merkle::core::MerkleProofCore,
         traits::{
-            hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
+            hasher::{FieldQHasher, MerkleZeroHasherWithMarkedLeaf},
             qhashable::QFieldHashable,
         },
     },
 };
 use psy_data::{
     config::store_config::PsyHasher,
-    dpn::proving_session::{
-        DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, PsyLocalTransactionRecord,
-    },
+    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, PsyLocalTransactionRecord},
     guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats},
     qdata::{
         checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafCompact, PsyCheckpointLeafCompactWithStateRoots},
         ups_end_cap_result::UPSEndCapResultCompact,
         ups_signature::PsyUserProvingSessionSignatureDataCompact,
         user::PsyUserLeaf,
-        user_contract_state::{SignContext, UserContractState},
+        user_contract_state::SignContext,
     },
     qstore::{
         controllers::{
             proving_session::{PsyEventsStore, PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
-            register_helpers::get_default_user_contract_tree_root,
             session_info::SessionCircuitInfoStore,
             state_tracker::PsyUserSessionUpdateHistory,
         },
@@ -79,15 +73,12 @@ use psy_data::{
         verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput,
     },
 };
-use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
     ups::circuit_manager::UPSCircuitManager,
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},
 };
 use serde::Serialize;
-
-use crate::circuit_manager::core::PsyUPSStepCircuitManager;
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;

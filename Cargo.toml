@@ -4,19 +4,13 @@ members = [
     "psy_core/kvq",
     "psy_core/psy_common",
     "psy_core/psy_crypto",
-    "psy_store",
     "psy_prover",
     "psy_core/psy_data",
     "psy_circuit/psy_common_circuit",
     "psy_circuit/psy_network_circuit",
     "psy_circuit/psy_ups_circuit",
     "psy_circuit/psy_dpn_circuit",
-    "psy_node",
     "psy_cli/psy_user_cli",
-    "psy_cli/psy_node_cli",
-    "psy_cli/psy_dev_cli",
-    "psy_services",
-    "psy_sdk/psy-rust-sdk",
     "psy_core/psy_config",
 ]
 resolver = "2"
@@ -217,19 +211,15 @@ config = "0.15"
 
 psy_vm = { path = "./psy_vm", default-features = false }
 psy_crypto = { path = "./psy_core/psy_crypto" }
-psy_store = { path = "./psy_store", default-features = false }
 psy_data = { path = "./psy_core/psy_data", default-features = false }
 psy_common = { path = "./psy_core/psy_common" }
 psy_config = { path = "./psy_core/psy_config" }
-psy_node = { path = "./psy_node" }
 psy_prover = { path = "./psy_prover", default-features = false }
 psy_common_circuit = { path = "./psy_circuit/psy_common_circuit", default-features = false }
 psy_dpn_circuit = { path = "./psy_circuit/psy_dpn_circuit", default-features = false }
 psy_ups_circuit = { path = "./psy_circuit/psy_ups_circuit", default-features = false }
 kvq = { path = "./psy_core/kvq" }
 psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-features = false }
-psy_services = { path = "./psy_services" }
-psy_rust_sdk = { path = "./psy_sdk/psy-rust-sdk" }
 psy_provider = { path = "./psy_provider" }
 
 serial_test = "3.2"

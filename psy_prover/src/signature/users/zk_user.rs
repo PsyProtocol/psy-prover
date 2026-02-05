@@ -4,7 +4,6 @@ use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::Poseidon
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey};
 use psy_data::config::store_config::{PsyPlonky2Config, PsyProof};
-use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use crate::{

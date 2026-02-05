@@ -8,10 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_common::{
-    data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
-    ups::circuits::LocalCircuitType,
-};
+use psy_common::{data::qhashout::QHashOut, ups::circuits::LocalCircuitType};
 use psy_common_circuit::{
     circuits::{
         secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
@@ -22,18 +19,9 @@ use psy_common_circuit::{
 };
 use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_crypto::{
-    common::{
-        circuit_library::CircuitInfoLibraryBuilder,
-        witnesses::qrecursion::{
-            header::QRecursionAggStandardHeader,
-            proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
-        },
-    },
+    common::witnesses::qrecursion::proof_data::{AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs},
     hash::{
-        merkle::{
-            core::{DeltaMerkleProofCore, MerkleProofCore},
-            utils::simple_merkle_tree::SimpleMerkleTree,
-        },
+        merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
         traits::hasher::MerkleZeroHasherWithMarkedLeaf,
     },
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
@@ -50,11 +38,8 @@ use psy_data::{
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::ups::circuits::{
-    end_cap::UPSStandardEndCapCircuit,
-    ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit,
-    ups_cfc_standard::UPSCFCStandardTransactionCircuit,
-    ups_start::UPSStartSessionCircuit,
-    ups_start_register_user::{self, UPSStartSessionRegisterUserCircuit},
+    end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit,
+    ups_start::UPSStartSessionCircuit, ups_start_register_user::UPSStartSessionRegisterUserCircuit,
 };
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
@@ -376,25 +361,25 @@ where
 
     async fn register_dpn_software_defined_circuit(
         &self,
-        fn_def: psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition,
-        contract_id: u64,
-        contract_state_tree_height: u8,
-        session_proof_tree_height: u8,
-        force_four_align: bool,
+        _fn_def: psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition,
+        _contract_id: u64,
+        _contract_state_tree_height: u8,
+        _session_proof_tree_height: u8,
+        _force_four_align: bool,
     ) -> anyhow::Result<QHashOut<C::F>> {
         unimplemented!("register_dpn_software_defined_circuit");
     }
 
-    async fn register_plonky2_software_defined_circuit(&self, contract_state_tree_height: u8, input_len: usize) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_plonky2_software_defined_circuit(&self, _contract_state_tree_height: u8, _input_len: usize) -> anyhow::Result<QHashOut<C::F>> {
         unimplemented!("register_plonky2_software_defined_circuit");
     }
 
     async fn prove_dpn_software_defined_sign(
         &self,
-        fingerprint: QHashOut<C::F>,
-        private_key: QHashOut<C::F>,
-        input: psy_vm::ups::signature::DPNSoftwareDefinedSignatureInput,
-        sig_hash: QHashOut<C::F>,
+        _fingerprint: QHashOut<C::F>,
+        _private_key: QHashOut<C::F>,
+        _input: psy_vm::ups::signature::DPNSoftwareDefinedSignatureInput,
+        _sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         unimplemented!("prove_dpn_software_defined_sign");
     }

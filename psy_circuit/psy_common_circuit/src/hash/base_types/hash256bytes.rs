@@ -177,11 +177,7 @@ mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
-        plonk::{
-            circuit_builder::CircuitBuilder,
-            circuit_data::CircuitConfig,
-            config::{GenericConfig, PoseidonGoldilocksConfig},
-        },
+        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
     };
     use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 

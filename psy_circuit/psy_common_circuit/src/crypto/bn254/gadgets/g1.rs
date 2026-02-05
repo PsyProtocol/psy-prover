@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::target::{BoolTarget, Target},
+    iop::target::BoolTarget,
     plonk::circuit_builder::CircuitBuilder,
 };
 
@@ -13,10 +13,7 @@ use crate::crypto::{
         field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
         gadgets::nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
     },
-    secp256k1::ecdsa::{
-        curve::curve_types::{AffinePoint, Curve, ProjectivePoint},
-        gadgets::curve::CircuitBuilderCurve,
-    },
+    secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
 };
 
 type G1Affine = AffinePoint<G1>;
@@ -239,7 +236,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderG1<F, D> for Ci
 
             let new_result_if_result_inf_and_bit_1 = two_i_times_p.clone();
 
-            let new_result_if_term_inf_and_bit_1 = result.clone();
+            let _new_result_if_term_inf_and_bit_1 = result.clone();
 
             let new_result_normal = self.add_or_double_g1_affine(&result, &two_i_times_p);
 
@@ -378,17 +375,11 @@ mod tests {
     use plonky2::{
         field::types::PrimeField,
         iop::witness::{PartialWitness, WitnessWrite},
-        plonk::{
-            circuit_data::CircuitConfig,
-            config::{GenericConfig, PoseidonGoldilocksConfig},
-        },
+        plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
     };
 
     use super::*;
-    use crate::crypto::{
-        bn254::{field::bn128_scalar::Bn128Scalar, gadgets::nonnative_fp::CircuitBuilderNonNative},
-        secp256k1::ecdsa::gadgets::biguint::WitnessBigUint,
-    };
+    use crate::crypto::{bn254::gadgets::nonnative_fp::CircuitBuilderNonNative, secp256k1::ecdsa::gadgets::biguint::WitnessBigUint};
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -503,7 +494,7 @@ mod tests {
         pw.set_biguint_target(&z_target.value, &g1_gen.z.to_canonical_biguint())?;
         pw.set_biguint_target(&expected_x_target.value, &g1_affine.x.to_canonical_biguint())?;
         pw.set_biguint_target(&expected_y_target.value, &g1_affine.y.to_canonical_biguint())?;
-        pw.set_bool_target(expected_infinity, false);
+        pw.set_bool_target(expected_infinity, false)?;
 
         let proof = data.prove(pw)?;
         data.verify(proof)?;
@@ -548,7 +539,7 @@ mod tests {
         pw.set_biguint_target(&z_target.value, &Bn128Base::ZERO.to_canonical_biguint())?;
         pw.set_biguint_target(&expected_x_target.value, &Bn128Base::ZERO.to_canonical_biguint())?;
         pw.set_biguint_target(&expected_y_target.value, &Bn128Base::ZERO.to_canonical_biguint())?;
-        pw.set_bool_target(expected_infinity, true);
+        pw.set_bool_target(expected_infinity, true)?;
 
         let proof = data.prove(pw)?;
         data.verify(proof)?;

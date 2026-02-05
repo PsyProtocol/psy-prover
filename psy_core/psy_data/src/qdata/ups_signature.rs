@@ -11,7 +11,7 @@ use psy_crypto::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::user_contract_state::{SignContext, UserContractState};
+use crate::qdata::user_contract_state::SignContext;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

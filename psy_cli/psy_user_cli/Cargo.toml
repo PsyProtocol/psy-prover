@@ -21,11 +21,11 @@ psy_common = { workspace = true }
 psy_vm = { workspace = true }
 psy_prover = { workspace = true, default-features = false}
 psy_data = { workspace = true }
-psy_rust_sdk = { workspace = true }
+# psy_rust_sdk = { workspace = true }
+psy_provider = { workspace = true }
 psy_config = { workspace = true }
-psy_node = { workspace = true }
-psy_services = { workspace = true }
-psy_store = { workspace = true, default-features = false }
+# psy_node = { workspace = true }
+# psy_store = { workspace = true, default-features = false }
 kvq = { workspace = true }
 hashbrown = { workspace = true }
 async-trait = { workspace = true }
@@ -65,4 +65,4 @@ reqwest = { workspace = true, features = ["json"] }
 
 [features]
 # default = ["is_sync"]
-is_sync = ["psy_prover/is_sync", "psy_store/is_sync"]
+is_sync = ["psy_prover/is_sync"]

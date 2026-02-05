@@ -12,13 +12,7 @@ use psy_crypto::hash::merkle::{
 };
 
 use super::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget;
-use crate::{
-    builder::{
-        comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, math::core::CircuitBuilderCoreMathHelpers,
-        select::CircuitBuilderSelectHelpers,
-    },
-    u32::{arithmetic_u32::U32Target, interleaved_u32::CircuitBuilderB32},
-};
+use crate::builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, math::core::CircuitBuilderCoreMathHelpers};
 
 #[derive(Debug, Clone)]
 pub struct UpdateNearestCommonAncestorProofOptGadget {

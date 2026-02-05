@@ -1,7 +1,7 @@
 pub mod circuits;
-pub mod coordinator;
+// pub mod coordinator;
 pub mod gadgets;
 pub mod guta;
-pub mod lookalikes;
+// pub mod lookalikes;
 pub mod ups;
-pub mod verify_witness;
+// pub mod verify_witness;

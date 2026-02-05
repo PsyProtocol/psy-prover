@@ -8,11 +8,10 @@ use psy_data::{
     config::store_config::PsyHasher,
     dpn::event::PsyUserEventRecord,
     qdata::{
-        checkpoint::{PsyBlockState, PsyCheckpointLeaf},
+        checkpoint::PsyCheckpointLeaf,
         contract::{ContractCodeDefinition, PsyContractLeaf, SimpleContractCodeDefinition},
         user::{self, PsyUserLeaf},
     },
-    qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync,
         qtreedata::{PsyComboDataStoreReaderSync, QTreeDataStoreReaderSync},
@@ -833,7 +832,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
+    async fn get_withdrawal_tree_root(&self, _checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching withdrawal tree root");
         let root = PsyHasher::get_zero_hash(GLOBAL_DEPOSIT_TREE_HEIGHT as usize);
         return Ok(root);

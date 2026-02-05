@@ -2,14 +2,10 @@ use std::fmt;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use plonky2::{
-    field::goldilocks_field::GoldilocksField,
-    plonk::{circuit_data::VerifierOnlyCircuitData, config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
-};
+use plonky2::{field::goldilocks_field::GoldilocksField, plonk::circuit_data::VerifierOnlyCircuitData};
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
 use psy_data::config::store_config::{PsyHasher, PsyPlonky2Config, PsyProof};
-use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use super::context::SignContext;

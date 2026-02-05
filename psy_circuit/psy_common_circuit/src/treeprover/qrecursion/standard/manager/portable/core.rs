@@ -15,9 +15,8 @@ use psy_crypto::{
         traits::hasher::MerkleZeroHasherWithMarkedLeaf,
     },
 };
-use psy_vm::ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsProve};
+use psy_vm::ups::circuit_manager::PortableQTreeRecursion;
 
-use super::circuits::PortableQTreeRecursionCircuits;
 #[derive(Clone, Debug)]
 pub struct PortableQTreeRecursionManager<C: GenericConfig<D>, const D: usize> {
     pub proof_tree: SimpleMerkleTree<C::Hasher, QHashOut<C::F>>,

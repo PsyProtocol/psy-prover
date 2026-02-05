@@ -21,12 +21,12 @@ impl<F: RichField, P: PsyReadCommandProcessorSyncMut<F>> PsyReadCommandProcessor
         }
     }
 
-    pub fn write(&self) -> anyhow::Result<RwLockWriteGuard<P>> {
+    pub fn write(&self) -> anyhow::Result<RwLockWriteGuard<'_, P>> {
         self.inner
             .try_write()
             .map_err(|err| anyhow::anyhow!("Error writing to immutable store: {:?}", err))
     }
-    pub fn read(&self) -> anyhow::Result<RwLockReadGuard<P>> {
+    pub fn read(&self) -> anyhow::Result<RwLockReadGuard<'_, P>> {
         self.inner
             .try_read()
             .map_err(|err| anyhow::anyhow!("Error reading from immutable store: {:?}", err))

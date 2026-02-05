@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use plonky2::{
     field::{
         extension::Extendable,
-        types::{Field, PrimeField, Sample},
+        types::{Field, PrimeField},
     },
     hash::hash_types::RichField,
     plonk::circuit_builder::CircuitBuilder,

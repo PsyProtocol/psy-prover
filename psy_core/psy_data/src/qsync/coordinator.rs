@@ -1,13 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{
-        drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
-        history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged},
-    },
-};
-use psy_config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::{
         merkle::{
@@ -49,25 +42,25 @@ impl<F: RichField> PsyCheckpointSyncInfoCompact<F> {
         )
     }
 }
-impl<F: RichField> DrainQueueMetadataTagged for PsyCheckpointSyncInfoCompact<F> {
-    fn get_dq_metadata(&self) -> DrainQueueMetadata {
-        DrainQueueMetadata {
-            channel_id: PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-            checkpoint_id: self.block_state.checkpoint_id,
-            item_id: self.block_state.checkpoint_id,
-        }
-    }
-}
+// impl<F: RichField> DrainQueueMetadataTagged for
+// PsyCheckpointSyncInfoCompact<F> {     fn get_dq_metadata(&self) ->
+// DrainQueueMetadata {         DrainQueueMetadata {
+//             channel_id: PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+//             checkpoint_id: self.block_state.checkpoint_id,
+//             item_id: self.block_state.checkpoint_id,
+//         }
+//     }
+// }
 
-impl<F: RichField> HistoryQueueMetadataTagged for PsyCheckpointSyncInfoCompact<F> {
-    fn get_hq_metadata(&self) -> HistoryQueueMetadata {
-        HistoryQueueMetadata {
-            channel_id: PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-            checkpoint_id: self.block_state.checkpoint_id,
-            item_id: self.block_state.checkpoint_id,
-        }
-    }
-}
+// impl<F: RichField> HistoryQueueMetadataTagged for
+// PsyCheckpointSyncInfoCompact<F> {     fn get_hq_metadata(&self) ->
+// HistoryQueueMetadata {         HistoryQueueMetadata {
+//             channel_id: PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+//             checkpoint_id: self.block_state.checkpoint_id,
+//             item_id: self.block_state.checkpoint_id,
+//         }
+//     }
+// }
 
 impl<F: RichField> PsyCheckpointSyncInfoCompact<F> {
     pub fn to_sync_info<H: FieldQHasher<F>>(self) -> PsyCheckpointSyncInfo<F> {

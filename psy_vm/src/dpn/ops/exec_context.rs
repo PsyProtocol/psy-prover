@@ -45,6 +45,7 @@ pub struct QExecContext {
     pub assertions: Vec<SymRefAssertion>,
     condition_stack: Vec<IfConditionStack>,
     current_condition: SymFeltRef,
+    #[allow(dead_code)]
     external_function_call_count: u16,
     contract_state_tree_height: u16,
     pub set_state_command_count: u32,
@@ -110,7 +111,7 @@ impl QExecContext {
 
     fn create_contract_state_ref(
         &mut self,
-        contract_state_tree_height: u16,
+        _contract_state_tree_height: u16,
         contract_id: SymFeltRef,
         user_id: SymFeltRef,
         condition: SymFeltRef,
@@ -183,6 +184,7 @@ impl QExecContext {
         }
     }
 
+    #[allow(dead_code)]
     fn simplify_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         let a_type = a.get_op_type();
         let b_type = b.get_op_type();

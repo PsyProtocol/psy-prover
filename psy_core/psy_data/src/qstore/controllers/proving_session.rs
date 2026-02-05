@@ -1,10 +1,6 @@
 use hashbrown::HashMap;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use plonky2::{
-    field::types::{Field, PrimeField64},
-    hash::hash_types::RichField,
-    plonk::config::AlgebraicHasher,
-};
+use plonky2::{field::types::PrimeField64, hash::hash_types::RichField};
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT};
 use psy_crypto::{
@@ -15,7 +11,7 @@ use psy_crypto::{
             utils::simple_merkle_tree::SimpleMerkleTree,
         },
         traits::{
-            hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithCache, MerkleZeroHasherWithMarkedLeaf},
+            hasher::{FieldQHasher, MerkleZeroHasherWithMarkedLeaf},
             qhashable::QFieldHashable,
         },
         utils::safe_hash_fixed_length,

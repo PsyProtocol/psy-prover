@@ -144,7 +144,7 @@ impl SimpleBlockProcessor {
             }
             store.set_user_leaf_data(new_checkpoint_id, &upd_user.updated_leaf)?;
             let user_leaf_hash = user.qfhash::<PsyHasher>();
-            let user_delta_merkle_proof =
+            let _user_delta_merkle_proof =
                 store.set_user_tree_leaf_hash(new_checkpoint_id, upd_user.updated_leaf.user_id.to_canonical_u64(), user_leaf_hash)?;
 
             //r_users.push(user_witness);

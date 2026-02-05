@@ -12,7 +12,7 @@ use psy_config::network_constants::PSY_SIG_ACTION_SIGN_UPS_END_CAP;
 use psy_data::qdata::ups_signature::PsyUserProvingSessionSignatureDataCompact;
 
 use crate::gadgets::{
-    qdata::user_contract_state::{SignContextGadget, UserContractStateGadget},
+    qdata::user_contract_state::SignContextGadget,
     sig_action::{compute_sig_action_hash_circuit, SimplePsySigAction},
 };
 

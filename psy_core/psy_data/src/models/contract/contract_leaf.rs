@@ -1,8 +1,7 @@
-use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
+use kvq::traits::{KVQStoreAdapter, KVQStoreAdapterReader};
 use plonky2::hash::hash_types::RichField;
 
 use crate::{
-    config::store_config::PsyFelt,
     models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE,
     qdata::{checkpoint_id_key::CheckpointTableIdKey, contract::PsyContractLeaf},
 };

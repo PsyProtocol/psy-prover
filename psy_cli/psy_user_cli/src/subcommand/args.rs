@@ -1,10 +1,8 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Subcommand};
 use plonky2::field::goldilocks_field::GoldilocksField;
 pub use psy_common::args::WalletSourceArgs;
 use psy_common::{args::SignType, data::qhashout::QHashOut};
-use psy_rust_sdk::provider::NetworkConfig;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 #[derive(Clone, Args)]
 pub struct WalletArgs {
@@ -449,31 +447,6 @@ pub struct BlockStateArgs {
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
-}
-
-#[derive(Clone, Args, Serialize, Deserialize)]
-pub struct ClaimRewardsArgs {
-    #[clap(env, long, default_value = "config.json", env)]
-    pub rpc_config: String,
-
-    #[command(flatten)]
-    pub wallet: WalletSourceArgs,
-
-    /// Job specifications in format "job_id:location" where location is either
-    /// "realm:id" or "coordinator" Example: --job "12345:realm:0" --job
-    /// "67890:coordinator"
-    #[arg(long = "job", action = clap::ArgAction::Append)]
-    pub jobs: Vec<String>,
-
-    /// Maximum number of checkpoints to process in one batch (optional, limits
-    /// processing load)
-    #[clap(long, default_value = "5")]
-    pub limit: usize,
-
-    /// Starting checkpoint ID (optional, if not provided will start from last
-    /// claimed + 1)
-    #[clap(long)]
-    pub start_checkpoint_id: Option<u64>,
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]

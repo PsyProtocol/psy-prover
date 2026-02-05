@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use kvq::traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter, KVQStoreAdapterReader};
+use kvq::traits::{KVQSerializable, KVQStoreAdapter, KVQStoreAdapterReader};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 
 use super::key::KVQMerkleNodeKey;

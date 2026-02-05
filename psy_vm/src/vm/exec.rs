@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use plonky2::{
-    field::types::{Field, PrimeField64},
+    field::types::PrimeField64,
     hash::hash_types::{HashOut, RichField},
 };
 use psy_common::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
@@ -14,7 +14,7 @@ use psy_crypto::hash::{
     utils::safe_hash_fixed_length,
 };
 use psy_data::{
-    config::store_config::{PsyFelt, PsyHasher},
+    config::store_config::PsyFelt,
     dpn::{
         cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext},
         event::PsyUserEventRecord,
@@ -42,7 +42,7 @@ use ts_rs::TS;
 use super::cfc_input::DapenContractFunctionCircuitInput;
 use crate::dpn::{
     ops::{
-        op_types::{DPNEventRecord, DPNOpType},
+        op_types::DPNOpType,
         state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore},
     },
     vm::{def::DPNFunctionCircuitDefinition, exec::SimpleDPNExecutor},

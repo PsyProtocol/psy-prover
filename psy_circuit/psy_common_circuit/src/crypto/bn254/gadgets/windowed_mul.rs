@@ -2,10 +2,7 @@ use core::marker::PhantomData;
 
 use num::BigUint;
 use plonky2::{
-    field::{
-        extension::Extendable,
-        types::{Field, PrimeField, Sample},
-    },
+    field::{extension::Extendable, types::Field},
     hash::{hash_types::RichField, keccak::KeccakHash},
     iop::target::{BoolTarget, Target},
     plonk::{
@@ -17,19 +14,19 @@ use plonky2::{
 use crate::{
     crypto::{
         bn254::{
-            curve::{G1Affine, G2Affine, G1, G2},
-            field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension},
+            curve::{G1, G2},
+            field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
             gadgets::{
                 g1::{CircuitBuilderG1, G1AffineTarget},
                 g2::{CircuitBuilderG2, G2AffineTarget},
                 nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-                nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
+                nonnative_fp2::NonNativeTargetExt2,
                 split_nonnative::CircuitBuilderSplit,
             },
         },
         secp256k1::ecdsa::{
             curve::curve_types::{Curve, CurveScalar},
-            gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint},
+            gadgets::biguint::BigUintTarget,
         },
     },
     u32::arithmetic_u32,
@@ -114,9 +111,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         let hash_0 = KeccakHash::<25>::hash_no_pad(&[F::ZERO]);
         let hash_0_scalar = Bn128Scalar::from_noncanonical_biguint(BigUint::from_bytes_le(&GenericHashOut::<F>::to_bytes(&hash_0)));
 
-        let starting_scalar = hash_0_scalar;
-        let starting_point_x = Bn128Base::from_canonical_u64(0x123456789abcdef0u64);
-        let starting_point_y = Bn128Base::from_canonical_u64(0xfedcba9876543210u64);
+        let _starting_scalar = hash_0_scalar;
+        let _starting_point_x = Bn128Base::from_canonical_u64(0x123456789abcdef0u64);
+        let _starting_point_y = Bn128Base::from_canonical_u64(0xfedcba9876543210u64);
 
         let mut result = self.constant_g1_affine(G1::GENERATOR_AFFINE);
 
@@ -291,15 +288,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
 mod g2_scalar_mul_tests {
     use plonky2::{
         iop::witness::PartialWitness,
-        plonk::{
-            circuit_data::CircuitConfig,
-            config::{GenericConfig, PoseidonGoldilocksConfig},
-        },
+        plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
     };
 
     use super::*;
     use crate::crypto::{
-        bn254::{curve::g2::G2, pairing_config},
+        bn254::{curve::g2::G2, gadgets::CircuitBuilderNonNativeExt2, pairing_config},
         secp256k1::ecdsa::curve::curve_types::{Curve, CurveScalar},
     };
 
@@ -317,7 +311,7 @@ mod g2_scalar_mul_tests {
         let scalar = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
 
         println!("Starting G2 scalar multiplication test...");
-        let result = builder.curve_scalar_mul_windowed_g2(&g2_gen, &scalar);
+        let _result = builder.curve_scalar_mul_windowed_g2(&g2_gen, &scalar);
         println!("G2 scalar multiplication completed in circuit building");
 
         let data = builder.build::<C>();
@@ -387,7 +381,7 @@ mod g2_scalar_mul_tests {
         let doubled = builder.double_g2(&g2_gen);
 
         // Test addition
-        let added = builder.add_g2(&g2_gen, &doubled);
+        let _added = builder.add_g2(&g2_gen, &doubled);
 
         // Just ensure we can build the circuit
         let data = builder.build::<C>();

@@ -1,7 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use psy_common::data::qhashout::QHashOut;
-use psy_crypto::hash::merkle::{core::MerkleProofCore, treeprover::AggStateTransition};
+use psy_crypto::hash::merkle::treeprover::AggStateTransition;
 use serde::{Deserialize, Serialize};
 
 use crate::guta::header::GlobalUserTreeAggregatorHeader;

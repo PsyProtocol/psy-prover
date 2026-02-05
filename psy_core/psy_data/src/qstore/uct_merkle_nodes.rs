@@ -5,8 +5,6 @@ use std::{
 };
 
 use kvq::traits::{KVQPair, KVQSerializable};
-use psy_common::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
-use psy_config::network_constants::CST_USER_UPDATE_CHANNEL_ID;
 use psy_crypto::hash::{
     merkle::{
         core::DeltaMerkleProofCore,
@@ -38,15 +36,15 @@ impl<Hash: PartialEq + Copy + Serialize> Debug for CSTUserUpdate<Hash> {
     }
 }
 
-impl<Hash: PartialEq + Copy + Serialize> DrainQueueMetadataTagged for CSTUserUpdate<Hash> {
-    fn get_dq_metadata(&self) -> DrainQueueMetadata {
-        DrainQueueMetadata {
-            channel_id: CST_USER_UPDATE_CHANNEL_ID,
-            checkpoint_id: self.checkpoint_id,
-            item_id: self.user_id,
-        }
-    }
-}
+// impl<Hash: PartialEq + Copy + Serialize> DrainQueueMetadataTagged for
+// CSTUserUpdate<Hash> {     fn get_dq_metadata(&self) -> DrainQueueMetadata {
+//         DrainQueueMetadata {
+//             channel_id: CST_USER_UPDATE_CHANNEL_ID,
+//             checkpoint_id: self.checkpoint_id,
+//             item_id: self.user_id,
+//         }
+//     }
+// }
 impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for CSTUserUpdate<Hash> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -194,38 +192,3 @@ impl<Hash: PartialEq + Serialize + Copy + Display + std::fmt::Debug> CSTUserUpda
         }
     }
 }
-/*
-
-pub fn verify_generate_cst_map<Hash: PartialEq + Copy + Serialize, Hasher: MerkleHasher<Hash>>(
-    contract_id: u32,
-    proof: &DeltaMerkleProofCore<Hash>,
-    nodes: &mut HashMap<SimpleMerkleNodeKey, CSTDeltaNode<Hash>>,
-) -> anyhow::Result<()> {
-
-
-    let mut current = proof.old_value;
-    for (i, sibling) in proof.siblings.iter().enumerate() {
-
-        current = Hasher::two_to_one_swap(proof.index & (1 << i) != 0, &current, sibling);
-    }
-    if current != proof.old_root {
-        anyhow::bail!("invalid old root");
-    }
-    current = proof.new_value;
-    let mut key  = SimpleMerkleNodeKey::new(proof.siblings.len() as u8, proof.index);
-
-    nodes.insert(key, CSTDeltaNode { contract_id, level: key.level, index: key.index, value: current });
-
-    for (i, sibling) in proof.siblings.iter().enumerate() {
-        key = key.parent();
-        current = Hasher::two_to_one_swap(proof.index & (1 << i) != 0, &current, sibling);
-        nodes.insert(key, CSTDeltaNode { contract_id, level: key.level, index: key.index, value: current });
-    }
-    if current != proof.new_root {
-        anyhow::bail!("invalid new root!");
-    }
-
-    Ok(())
-}
-
-*/

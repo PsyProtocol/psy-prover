@@ -5,16 +5,16 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore};
-use psy_config::{DA_FEE, network_constants::{
-    CHECKPOINT_TREE_HEIGHT, DEFAULT_CALLER_CONTRACT_ID_U64, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID,
-}};
+use psy_config::{
+    network_constants::{CHECKPOINT_TREE_HEIGHT, DEFAULT_CALLER_CONTRACT_ID_U64, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID},
+    DA_FEE,
+};
 
 use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data::PsyUserProvingSessionSignatureDataCompactGadget};
 use crate::{
     gadgets::qdata::{
-        contract_function_call::DPNProvingSessionSimpleMethodCallGadget,
-        ups_context_input::UserProvingSessionHeaderGadget,
-        user_contract_state::{SignContextGadget, UserContractStateGadget},
+        contract_function_call::DPNProvingSessionSimpleMethodCallGadget, ups_context_input::UserProvingSessionHeaderGadget,
+        user_contract_state::SignContextGadget,
     },
     guta::gadgets::guta_stats::GUTAStatsGadget,
 };

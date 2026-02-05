@@ -1,8 +1,6 @@
 pub mod adapters;
 pub mod base_types;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub mod cache;
 pub mod memory;
 pub mod traits;
 

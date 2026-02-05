@@ -599,13 +599,11 @@ mod tests {
     use plonky2::{
         field::{
             extension::FieldExtension,
-            ops::Square,
             types::{Field, Sample},
         },
         iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder,
-            circuit_data::CircuitConfig,
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };

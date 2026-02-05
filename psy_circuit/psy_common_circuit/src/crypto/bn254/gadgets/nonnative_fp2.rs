@@ -6,13 +6,8 @@ use plonky2::{
         types::{Field, PrimeField},
     },
     hash::hash_types::RichField,
-    iop::{
-        generator::{GeneratedValues, SimpleGenerator},
-        target::BoolTarget,
-        witness::PartitionWitness,
-    },
+    iop::target::BoolTarget,
     plonk::circuit_builder::CircuitBuilder,
-    util::serialization::{Buffer, IoResult, Read, Write},
 };
 
 use crate::crypto::bn254::{
@@ -327,11 +322,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
 #[cfg(test)]
 mod tests {
     use plonky2::{
-        field::types::{Field, Sample},
+        field::types::Field,
         iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder,
-            circuit_data::CircuitConfig,
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
@@ -375,7 +369,7 @@ mod tests {
 
         let x_ff = FF::rand();
         let y_ff = FF::rand();
-        let diff_ff = x_ff - y_ff;
+        let _diff_ff = x_ff - y_ff;
 
         let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
@@ -402,7 +396,7 @@ mod tests {
 
         let x_ff = FF::rand();
         let y_ff = FF::rand();
-        let product_ff = x_ff * y_ff;
+        let _product_ff = x_ff * y_ff;
 
         let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
@@ -410,7 +404,7 @@ mod tests {
 
         let x = builder.constant_nonnative_ext2(x_ff);
         let y = builder.constant_nonnative_ext2(y_ff);
-        let product = builder.mul_nonnative_ext2(&x, &y);
+        let _product = builder.mul_nonnative_ext2(&x, &y);
 
         let one = builder.constant_nonnative_ext2(FF::ONE);
         let x_times_one = builder.mul_nonnative_ext2(&x, &one);
@@ -497,11 +491,8 @@ mod tests {
 
     #[test]
     fn test_nonnative_ext2_mul_by_nonresidue() -> anyhow::Result<()> {
-        use plonky2::field::extension::FieldExtension;
-
         use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
 
-        type FF = QuadraticExtension<Bn128Base>;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

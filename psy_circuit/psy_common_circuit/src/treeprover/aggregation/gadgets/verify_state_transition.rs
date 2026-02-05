@@ -13,7 +13,7 @@ use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig, TPCircuitFingerprintConfig};
 
 use super::AggStateTransitionGadget;
-use crate::{builder::connect::CircuitBuilderConnectHelpers, treeprover::aggregation::gadgets::AggStateTransitionProofValidityGadget};
+use crate::treeprover::aggregation::gadgets::AggStateTransitionProofValidityGadget;
 #[derive(Debug, Clone)]
 pub struct VerifyStateTransitionProofGadget<const D: usize> {
     // start targets requiring witness

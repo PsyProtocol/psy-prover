@@ -1,9 +1,9 @@
 #![cfg(not(target_arch = "wasm32"))]
 
-use std::{collections::HashMap, fmt, fs, path::Path};
+use std::{fmt, fs, path::Path};
 
 use alloy_primitives::{Address, B256};
-use alloy_signer::{Signer, SignerSync};
+use alloy_signer::SignerSync;
 use alloy_signer_local::{
     coins_bip39::{English, Mnemonic},
     MnemonicBuilder, PrivateKeySigner,
@@ -16,8 +16,6 @@ use k256::{
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonPermutation};
 use psy_common::data::{qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use serde::Serialize;
 
 use crate::wallet::secp_sign::SignedRequest;
 

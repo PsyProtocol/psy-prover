@@ -11,7 +11,6 @@ cfg_if::cfg_if! {
         pub mod wallet;
         pub mod register_user;
         pub mod submit_end_cap_proof;
-        pub mod claim_rewards;
         pub mod claim_amount;
         pub mod check_tx;
         pub mod key_utils;
@@ -88,8 +87,6 @@ pub enum Commands {
     LocalProver(ProverArgs),
     ProveProxy(ProveProxyArgs),
 
-    // rewards claiming
-    ClaimRewards(crate::subcommand::args::ClaimRewardsArgs),
     // claim amount
     GetClaimAmount(crate::subcommand::args::ClaimAmountArgs),
     // check tx is onchain

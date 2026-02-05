@@ -15,7 +15,7 @@ use psy_config::{
     DEFAULT_USER_STATE_TREE_ROOT_U64,
 };
 use psy_crypto::{common::user_id::circuit_user_registration_tree_index_bits_to_user_id, hash::traits::hasher::iterate_merkle_hasher_alg};
-use psy_data::ups::{start_step::UPSStartStepInput, start_step_register_user::UPSStartStepRegisterUserInput};
+use psy_data::ups::start_step_register_user::UPSStartStepRegisterUserInput;
 
 use crate::gadgets::qdata::{
     checkpoint::PsyCheckpointLeafGadget, checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget,

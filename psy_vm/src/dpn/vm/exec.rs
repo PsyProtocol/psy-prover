@@ -254,6 +254,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
         }
     }
 
+    #[allow(dead_code)]
     fn print_current_op(&self, op: &DPNIndexedVarDef) {
         match op.data_type {
             DPNBuiltInDataType::Target => println!("d_target[{}] -> {:?}", self.targets.len(), op),

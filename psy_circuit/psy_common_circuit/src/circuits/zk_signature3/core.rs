@@ -155,7 +155,7 @@ where
             .iter()
             .map(|c| builder.constant(C::F::from_canonical_u64(*c)))
             .collect::<Vec<_>>();
-        let public_key_param_target = builder.hash_n_to_hash_no_pad::<C::Hasher>(vec![
+        let _public_key_param_target = builder.hash_n_to_hash_no_pad::<C::Hasher>(vec![
             private_key_constants[0],
             private_key_constants[1],
             private_key_constants[2],
@@ -319,17 +319,17 @@ where
 }
 
 mod test {
-    use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use psy_common::utils::debug_timer::DebugTimer;
-
-    use super::*;
-
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
 
     #[test]
     fn test_serialize_circuit() -> anyhow::Result<()> {
+        use plonky2::plonk::config::PoseidonGoldilocksConfig;
+        use psy_common::utils::debug_timer::DebugTimer;
+
+        use super::*;
+
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+
         let mut timer = DebugTimer::new("serialize_circuit test");
         timer.lap("init zk sign circuit");
         let zk_circuit = PsyBasicZKSignatureCircuit::<C, D>::new();

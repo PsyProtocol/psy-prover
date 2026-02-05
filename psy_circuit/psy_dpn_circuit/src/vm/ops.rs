@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Sum, marker::PhantomData};
+use std::{collections::HashMap, marker::PhantomData};
 
 use plonky2::{
     field::{extension::Extendable, secp256k1_base::Secp256K1Base, secp256k1_scalar::Secp256K1Scalar},
@@ -486,9 +486,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let left = self.resolve_u32(op.inputs[0]);
                 let right = self.resolve_u32(op.inputs[1]);
                 let two = builder.two();
-                let thirty_two = builder.constant_u32(32);
                 let power_of_two = builder.exp(two, right.0, 32);
-                let (power_of_two_low, power_of_two_heigh) =
+                let (power_of_two_low, _power_of_two_heigh) =
                     psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits(builder, power_of_two);
                 self.u32s.push(builder.mul_u32(left, U32Target(power_of_two_low)).0);
             }
@@ -507,14 +506,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             }
             DPNOpType::U32ShiftLeftConstantValue => {
                 let left = self.resolve_u32(op.inputs[0]);
-                let left_value = builder
+                let _left_value = builder
                     .target_as_constant(self.resolve_u32(op.inputs[0]).0)
                     .expect("U32ShiftLeftConstantValue left must be constant")
                     .to_canonical_u64();
                 let right = self.resolve_u32(op.inputs[1]);
                 let two = builder.two();
                 let power_of_two = builder.exp(two, right.0, 32);
-                let (power_of_two_low, power_of_two_heigh) =
+                let (power_of_two_low, _power_of_two_heigh) =
                     psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits(builder, power_of_two);
                 self.u32s.push(builder.mul_u32(left, U32Target(power_of_two_low)).0);
             }
@@ -525,7 +524,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let thirty_two = builder.constant_u32(32);
                 let zero = builder.constant_u32(0);
                 let two = builder.two();
-                let (right_exp, right_borrow) = builder.sub_u32(thirty_two, right, zero);
+                let (_right_exp, right_borrow) = builder.sub_u32(thirty_two, right, zero);
                 let is_right_borrow_zero = builder.is_equal(right_borrow.0, zero.0);
 
                 let right_normal = builder.select(is_right_borrow_zero, right.0, thirty_two.0);
@@ -538,7 +537,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let right_biguint = BigUintTarget {
                     limbs: vec![U32Target(power_of_two_low), U32Target(power_of_two_heigh)],
                 };
-                let (div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
+                let (div_biguint, _rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
                 // assert!(rem_biguint.limbs.len() == 1);
 
                 self.u32s.push(div_biguint.limbs[0]);
@@ -571,7 +570,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let thirty_two = builder.constant_u32(32);
                 let zero = builder.constant_u32(0);
                 let two = builder.two();
-                let (right_exp, right_borrow) = builder.sub_u32(thirty_two, right, zero);
+                let (_right_exp, right_borrow) = builder.sub_u32(thirty_two, right, zero);
                 let is_right_borrow_zero = builder.is_equal(right_borrow.0, zero.0);
 
                 let right_normal = builder.select(is_right_borrow_zero, right.0, thirty_two.0);
@@ -584,7 +583,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let right_biguint = BigUintTarget {
                     limbs: vec![U32Target(power_of_two_low), U32Target(power_of_two_heigh)],
                 };
-                let (div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
+                let (div_biguint, _rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
                 // assert!(rem_biguint.limbs.len() == 1);
 
                 self.u32s.push(div_biguint.limbs[0]);

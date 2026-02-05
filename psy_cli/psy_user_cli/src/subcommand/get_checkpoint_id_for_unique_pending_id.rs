@@ -1,5 +1,5 @@
 use anyhow::Result;
-use psy_rust_sdk::provider::RpcProvider;
+use psy_provider::provider::RpcProvider;
 
 use super::args::{GetCheckpointIdForUniquePendingIdArgs, RpcProviderType};
 

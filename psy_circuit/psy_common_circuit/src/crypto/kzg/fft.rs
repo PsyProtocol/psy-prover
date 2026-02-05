@@ -1,11 +1,8 @@
 use std::marker::PhantomData;
 
-use num::{BigUint, Zero};
+use num::BigUint;
 use plonky2::{
-    field::{
-        extension::Extendable,
-        types::{Field, PrimeField},
-    },
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     plonk::circuit_builder::CircuitBuilder,
 };
@@ -15,8 +12,7 @@ use crate::crypto::{
         field::bn128_scalar::Bn128Scalar,
         gadgets::nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
     },
-    kzg::builder::{CircuitBuilderKZG, CircuitBuilderKZGHelpers},
-    secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint},
+    kzg::builder::CircuitBuilderKZGHelpers,
 };
 
 #[derive(Clone, Debug)]
@@ -321,6 +317,7 @@ fn reverse_bits(x: usize, log_n: u32) -> usize {
 trait CircuitBuilderPowExt<F: RichField + Extendable<D>, const D: usize> {
     fn pow_nonnative_biguint(&mut self, base: &NonNativeTarget<Bn128Scalar>, exponent: &BigUint) -> NonNativeTarget<Bn128Scalar>;
 
+    #[allow(dead_code)]
     fn pow_nonnative(&mut self, base: &NonNativeTarget<Bn128Scalar>, exponent: usize) -> NonNativeTarget<Bn128Scalar>;
 }
 

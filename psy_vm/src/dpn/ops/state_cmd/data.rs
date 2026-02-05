@@ -788,7 +788,7 @@ impl<F: ContextFelt> ToFelts<F> for DPNStateCmd<u64> {
             panic!("DPNStateCmd requires at least one felt");
         }
         let mut idx = 0usize;
-        let mut take = |felts: &[F], idx: &mut usize| {
+        let take = |felts: &[F], idx: &mut usize| {
             if *idx >= felts.len() {
                 panic!("DPNStateCmd decoding overflow");
             }
@@ -998,7 +998,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                 sub_slot_index: inputs_as_u64[1],
                 value: inputs_as_u64[2..].to_vec(),
             }),
-            DPNStateCmd::ClearEntireTree(c) => DPNStateCmd::ClearEntireTree(DPNStateCmdClearEntireTree { condition: inputs_as_u64[0] }),
+            DPNStateCmd::ClearEntireTree(_c) => DPNStateCmd::ClearEntireTree(DPNStateCmdClearEntireTree { condition: inputs_as_u64[0] }),
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => {
                 DPNStateCmd::InvokeExternalContractFunctionSync(DPNStateCmdInvokeExternalContractFunctionSync {
                     condition: inputs_as_u64[0],
@@ -1064,7 +1064,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                     c.length,
                 ))
             }
-            DPNStateCmd::GetCheckpointLeafStats(c) => {
+            DPNStateCmd::GetCheckpointLeafStats(_c) => {
                 DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::<u64>::new(inputs_as_u64[0]))
             }
             DPNStateCmd::GetContractLeaf(_c) => DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf::<u64>::new(inputs_as_u64[0])),

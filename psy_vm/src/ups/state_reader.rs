@@ -2,14 +2,7 @@ use std::fmt::Debug;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use maybe_async::maybe_async;
-use plonky2::{
-    field::{
-        extension::Extendable,
-        goldilocks_field::GoldilocksField,
-        types::{Field, PrimeField64},
-    },
-    hash::hash_types::RichField,
-};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{

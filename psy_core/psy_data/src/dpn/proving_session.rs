@@ -355,7 +355,7 @@ impl<F: RichField> PsyLocalTransactionRecord<F> {
         start_checkpoint: F,
         write_checkpoint: F,
         call_data: DPNProvingSessionSignableMethodCall<F>,
-        start_contract_state_tree_root: QHashOut<F>,
+        _start_contract_state_tree_root: QHashOut<F>,
     ) -> Self {
         Self {
             start_checkpoint,

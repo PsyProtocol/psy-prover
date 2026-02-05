@@ -1,45 +1,23 @@
-use plonky2::{
-    field::{
-        extension::Extendable,
-        types::{Field, PrimeField},
-    },
-    hash::hash_types::RichField,
-    iop::target::{BoolTarget, Target},
-    plonk::circuit_builder::CircuitBuilder,
-};
-
-use super::{commitment::KZGCommitmentTarget, proof::KZGProofTarget};
-use crate::crypto::bn254::{
-    curve::g2::G2,
-    field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension},
-    gadgets::{
-        g1::{CircuitBuilderG1, G1AffineTarget},
-        g2::{CircuitBuilderG2, G2AffineTarget},
-        nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-        nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12},
-        nonnative_fp2::CircuitBuilderNonNativeExt2,
-        nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
-        pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
-    },
-};
-
 #[cfg(test)]
 mod tests {
     use plonky2::{
         iop::witness::PartialWitness,
         plonk::{
-            circuit_data::CircuitConfig,
+            circuit_builder::CircuitBuilder,
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
 
-    use super::*;
     use crate::crypto::{
-        bn254::pairing_config,
-        kzg::{setup::KZGSetup, CircuitBuilderKZG},
+        bn254::{
+            curve::g2::G2,
+            field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
+            gadgets::{g1::CircuitBuilderG1, nonnative_fp::CircuitBuilderNonNative, pairing::CircuitBuilderCurveG2},
+            pairing_config,
+        },
+        kzg::{CircuitBuilderKZG, KZGCommitmentTarget, KZGProofTarget},
         secp256k1::ecdsa::curve::curve_types::Curve,
     };
-
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
@@ -76,7 +54,7 @@ mod tests {
 
         let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(G2::GENERATOR_AFFINE);
 
-        let is_valid = builder.kzg_batch_verify(
+        let _is_valid = builder.kzg_batch_verify(
             &[commitment1, commitment2],
             &[point1, point2],
             &[eval1, eval2],

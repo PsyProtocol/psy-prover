@@ -8,7 +8,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         ext_target::ExtensionTarget,
-        generator::{GeneratedValues, SimpleGenerator, WitnessGenerator, WitnessGeneratorRef},
+        generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef},
         target::Target,
         wire::Wire,
         witness::{PartitionWitness, Witness, WitnessWrite},
@@ -449,12 +449,12 @@ impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F,
             let result_limb: BigUint = (output_biguint.clone() >> (j * 28)) & BigUint::from_u32(0xfffffff).unwrap();
             output_u32s[j] = result_limb.to_u32().unwrap();
             let output_result = F::from_canonical_u32(output_u32s[j]);
-            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone());
+            out_buffer.set_wire(local_wire(self.gate.wire_ith_output_result(self.i, j)), output_result.clone())?;
 
             let quotient_limb: BigUint = (quotient_biguint.clone() >> (j * 28)) & BigUint::from_u32(0xfffffff).unwrap();
             quotient_u32s[j] = quotient_limb.to_u32().unwrap();
             let quotient_result = F::from_canonical_u32(quotient_u32s[j]);
-            out_buffer.set_wire(local_wire(self.gate.wire_ith_quotient(self.i, j)), quotient_result.clone());
+            out_buffer.set_wire(local_wire(self.gate.wire_ith_quotient(self.i, j)), quotient_result.clone())?;
         }
 
         for j in 0..10 {
@@ -470,7 +470,7 @@ impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F,
                 .collect();
             for k in 0..num_limbs {
                 let wire = local_wire(self.gate.wire_ith_output_jth_limb28_kth_limb2_bit(self.i, j, k));
-                out_buffer.set_wire(wire, output_limbs[k].clone());
+                out_buffer.set_wire(wire, output_limbs[k].clone())?;
             }
 
             let quotient_limbs: Vec<_> = (0..num_limbs)
@@ -482,7 +482,7 @@ impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F,
                 .collect();
             for k in 0..num_limbs {
                 let wire = local_wire(self.gate.wire_ith_quotient_jth_limb28_kth_limb2_bit(self.i, j, k));
-                out_buffer.set_wire(wire, quotient_limbs[k].clone());
+                out_buffer.set_wire(wire, quotient_limbs[k].clone())?;
             }
         }
 
@@ -507,9 +507,9 @@ impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F,
             let carry_right = right / base;
 
             let wire = local_wire(self.gate.wire_ith_carry_left(self.i, j));
-            out_buffer.set_wire(wire, F::from_canonical_u64(carry_left as u64));
+            out_buffer.set_wire(wire, F::from_canonical_u64(carry_left as u64))?;
             let wire = local_wire(self.gate.wire_ith_carry_right(self.i, j));
-            out_buffer.set_wire(wire, F::from_canonical_u64(carry_right as u64));
+            out_buffer.set_wire(wire, F::from_canonical_u64(carry_right as u64))?;
 
             last_carry_left = carry_left;
             last_carry_right = carry_right;

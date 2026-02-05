@@ -1,6 +1,6 @@
 use anyhow::Result;
 use psy_common::job::id::QProvingJobDataIDWithRewardPath;
-use psy_rust_sdk::provider::RpcProvider;
+use psy_provider::provider::RpcProvider;
 
 use super::args::{GenerateBatchProofMinerRewardProofsArgs, RpcProviderType};
 

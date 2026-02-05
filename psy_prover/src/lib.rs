@@ -14,16 +14,14 @@ pub async fn run_server(args: psy_common::args::ProverArgs) -> anyhow::Result<()
 
     use hyper::Method;
     use jsonrpsee::server::Server;
-    use parking_lot::{Mutex, RwLock};
+    use parking_lot::RwLock;
     use psy_common::{data::base_types::hash256::Hash256, health::HealthLayer};
-    use psy_provider::provider::NetworkConfig;
     use tower_http::cors::{Any, CorsLayer};
 
     use crate::{
         local::{
             common::enc::SimpleZeroPadEncryptionHelper,
             native::{RpcServer, RpcServerImpl},
-            UserProverWorkerStore,
         },
         session::WalletSession,
     };
@@ -60,7 +58,6 @@ pub async fn run_prove_proxy_server(args: psy_common::args::ProveProxyArgs) -> a
     use hyper::Method;
     use jsonrpsee::server::Server;
     use psy_common::health::HealthLayer;
-    use psy_provider::provider::NetworkConfig;
     use tower_http::cors::{Any, CorsLayer};
 
     use crate::local::native::prove_proxy::ProveProxyRpcServer;

@@ -1,4 +1,4 @@
-use std::{any::TypeId, marker::PhantomData};
+use std::marker::PhantomData;
 
 use num::BigUint;
 use plonky2::{
@@ -7,7 +7,6 @@ use plonky2::{
         types::{Field, PrimeField},
     },
     hash::hash_types::RichField,
-    iop::target::BoolTarget,
     plonk::circuit_builder::CircuitBuilder,
 };
 
@@ -19,12 +18,10 @@ use crate::crypto::{
             extension::{dodecic::DodecicExtension, quadratic::QuadraticExtension},
         },
         gadgets::{
-            g1::{CircuitBuilderG1, G1AffineTarget},
-            g2::{CircuitBuilderG2, G2AffineTarget},
+            g1::G1AffineTarget,
             nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
             nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12},
             nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
-            nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
         },
     },
     secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
@@ -32,6 +29,7 @@ use crate::crypto::{
 
 pub const ATE_LOOP_COUNT: [u64; 4] = [0x9d797039be763ba8, 0x0000000000000001, 0x0000000000000000, 0x0000000000000000];
 
+#[allow(dead_code)]
 fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     BigUint::from_slice(&[
         arr[0] as u32,
@@ -359,15 +357,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D> f
                 let c = &precomp.coeffs[idx];
                 idx += 1;
                 f = self.squared_nonnative_ext12(&f);
-                let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
-                let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
+                let _ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
+                let _ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
                 // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
 
                 if (j >> i) & 1 == 1 {
                     let c = &precomp.coeffs[idx];
                     idx += 1;
-                    let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
-                    let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
+                    let _ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
+                    let _ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
                     // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
                 }
             }
@@ -375,13 +373,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D> f
 
         let c = &precomp.coeffs[idx];
         idx += 1;
-        let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
-        let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
+        let _ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
+        let _ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
         // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
 
         let c = &precomp.coeffs[idx];
-        let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
-        let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
+        let _ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
+        let _ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
         // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
 
         f
@@ -569,16 +567,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D> f
 
 #[cfg(test)]
 mod tests {
-    use plonky2::{
-        iop::witness::PartialWitness,
-        plonk::{
-            circuit_data::CircuitConfig,
-            config::{GenericConfig, PoseidonGoldilocksConfig},
-        },
-    };
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use super::*;
-    use crate::crypto::bn254::curve::G2;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -586,10 +577,7 @@ mod tests {
 
     #[test]
     fn test_precompute_g2() -> anyhow::Result<()> {
-        use crate::crypto::{
-            bn254::curve::G2,
-            secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
-        };
+        use crate::crypto::{bn254::curve::G2, secp256k1::ecdsa::curve::curve_types::Curve};
 
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -612,10 +600,7 @@ mod tests {
 
     #[test]
     fn test_g2_circuit_operations() -> anyhow::Result<()> {
-        use crate::crypto::{
-            bn254::curve::G2,
-            secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
-        };
+        use crate::crypto::{bn254::curve::G2, secp256k1::ecdsa::curve::curve_types::Curve};
 
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -625,7 +610,7 @@ mod tests {
         let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_gen);
 
         // Try mul_by_q operation which is used in pairing
-        let result = builder.mul_by_q::<G2, Bn128Base>(&g2_target);
+        let _result = builder.mul_by_q::<G2, Bn128Base>(&g2_target);
 
         println!("Created G2 point and doubled it in circuit");
 
@@ -638,10 +623,7 @@ mod tests {
 
     #[test]
     fn test_g2_basic_operations() -> anyhow::Result<()> {
-        use crate::crypto::{
-            bn254::curve::G2,
-            secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
-        };
+        use crate::crypto::{bn254::curve::G2, secp256k1::ecdsa::curve::curve_types::Curve};
 
         // Test G2 generator
         let g2_gen = G2::GENERATOR_AFFINE;
@@ -669,23 +651,15 @@ mod tests {
 
     #[test]
     fn test_pairing() -> anyhow::Result<()> {
-        use anyhow::Result;
         use plonky2::{
-            field::types::Sample,
             iop::witness::PartialWitness,
-            plonk::{
-                circuit_data::CircuitConfig,
-                config::{GenericConfig, PoseidonGoldilocksConfig},
-            },
+            plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
         };
 
-        use crate::crypto::{
-            bn254::{
-                curve::{G1, G2},
-                field::extension::dodecic::DodecicExtension,
-                gadgets::g1::G1AffineTarget,
-            },
-            secp256k1::ecdsa::{curve::curve_types::Curve, gadgets::curve::CircuitBuilderCurve},
+        use crate::crypto::bn254::{
+            curve::{G1, G2},
+            field::extension::dodecic::DodecicExtension,
+            gadgets::g1::G1AffineTarget,
         };
 
         // Skip logging setup - we don't have env_logger dependency
@@ -696,8 +670,6 @@ mod tests {
 
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        type FF = Bn128Base;
 
         // These constants are not used in this test
 

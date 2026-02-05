@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use kvq::traits::{KVQSerializable, ScyllaKey};
+use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::checkpoint_id_key::CheckpointTableIdKey;

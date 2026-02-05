@@ -241,8 +241,8 @@ impl DPNOpType {
             DPNOpType::U32And => (a & b) & 0xffffffffu64,
             DPNOpType::U32Or => (a | b) & 0xffffffffu64,
             DPNOpType::U32Xor => (a ^ b) & 0xffffffffu64,
-            DPNOpType::U32ShiftLeft => (a << b) & 0xffffffffu64,
-            DPNOpType::U32ShiftRight => (a >> b) & 0xffffffffu64,
+            // DPNOpType::U32ShiftLeft => (a << b) & 0xffffffffu64,
+            // DPNOpType::U32ShiftRight => (a >> b) & 0xffffffffu64,
             DPNOpType::BoolAnd => (a & b) & 1,
             DPNOpType::BoolOr => (a | b) & 1,
             DPNOpType::U32Add => a + b,
@@ -476,7 +476,6 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::U32Exp => "U32Exp",
             DPNOpType::Secp256k1Verify => "Secp256k1Verify",
             DPNOpType::HashTwoToOne => "HashTwoToOne",
-            DPNOpType::GetCallerContractId => "GetCallerContractId",
         };
         write!(f, "DPNOpType::{}", r)
     }
@@ -577,7 +576,7 @@ impl<F: ContextFelt> ToFelts<F> for DPNIndexedVarDef {
             panic!("DPNIndexedVarDef expects at least 4 felts, got {}", felts.len());
         }
         let mut idx = 0usize;
-        let mut take = |felts: &[F], idx: &mut usize| {
+        let take = |felts: &[F], idx: &mut usize| {
             if *idx >= felts.len() {
                 panic!("DPNIndexedVarDef decoding overflow");
             }

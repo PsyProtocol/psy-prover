@@ -45,8 +45,8 @@ impl ClearEntireTreeGadget {
     }
 
     pub fn set_witness<W: Witness<F>, F: RichField>(&self, witness: &mut W, state_tree_height: u64, zero_hash: QHashOut<F>) -> anyhow::Result<()> {
-        witness.set_target(self.state_tree_height, F::from_canonical_u64(state_tree_height));
-        witness.set_hash_target(self.zero_hash, zero_hash.into());
+        witness.set_target(self.state_tree_height, F::from_canonical_u64(state_tree_height))?;
+        witness.set_hash_target(self.zero_hash, zero_hash.into())?;
         Ok(())
     }
 }
@@ -1036,7 +1036,7 @@ impl StateReaderGadget {
                 self.write_epoch += 1;
                 values
             }
-            DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(_c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
                 let ck = StateCommandCacheKey::new_read_current_contract_slot(c.slot_index, self.write_epoch);
 

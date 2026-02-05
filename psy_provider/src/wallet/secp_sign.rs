@@ -36,6 +36,7 @@ pub trait Eip712Signable: Serialize {
     }
 }
 
+#[allow(dead_code)]
 fn default_signed_request_typehash() -> B256 {
     keccak256(b"SignedRequest(address signer,uint256 timestamp,bytes32 dataHash)")
 }

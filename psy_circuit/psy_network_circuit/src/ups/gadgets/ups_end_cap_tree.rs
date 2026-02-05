@@ -8,13 +8,10 @@ use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::treeprover::qrecursion::standard::gadgets::attest_proof_in_tree::AttestProofInTreeGadget;
 use psy_config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT};
 use psy_crypto::{common::witnesses::qrecursion::header::AttestProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
-use psy_data::{
-    qdata::user_contract_state::UserContractState,
-    ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput},
-};
+use psy_data::ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput};
 
 use super::{ups_end_cap::UPSEndCapCoreGadget, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeGadget};
-use crate::{gadgets::qdata::user_contract_state::UserContractStateGadget, ups::gadgets::ups_end_cap_result::UPSEndCapResultCompactGadget};
+use crate::ups::gadgets::ups_end_cap_result::UPSEndCapResultCompactGadget;
 
 #[derive(Clone, Debug)]
 pub struct UPSEndCapFromProofTreeGadget {
