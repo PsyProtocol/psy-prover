@@ -32,7 +32,7 @@ use psy_crypto::{
 };
 use psy_data::{
     config::store_config::{PsyHash, PsyHasher},
-    qblock::cmds::deploy_contract::QBCDeployContract,
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState},
     qstore::{
         controllers::{
@@ -49,6 +49,7 @@ use psy_data::{
         qtreedata::{PsyComboDataStoreReaderSync, QTreeDataStoreReaderSync},
     },
 };
+
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_provider::{
     provider::{NetworkConfig, ProveProxyRpcProvider, QUserRpcProvider, RpcProvider},
