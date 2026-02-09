@@ -346,6 +346,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::ProveProxy(prove_proxy_args) => crate::subcommand::prove_proxy::run(prove_proxy_args).await?,
 
         Commands::GetPsySdcFingerprint(get_psy_sdc_fingerprint) => crate::subcommand::get_psy_sdc_fingerprint::run(get_psy_sdc_fingerprint).await?,
+
+        Commands::GetUserEndCapCommonData => crate::subcommand::get_user_endcap_common_data::run().await?,
     }
     Ok(())
 }

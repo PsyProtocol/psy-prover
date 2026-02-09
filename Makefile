@@ -229,5 +229,8 @@ register-sdc-user:
 mint-sdc:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type "software-defined-dpn" --fingerprint ${SDC_FINGERPRINT}
 
+get-endcap-common-data:
+	@./target/${PROFILE}/psy_user_cli get-user-end-cap-common-data
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

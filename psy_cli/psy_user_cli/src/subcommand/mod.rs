@@ -18,6 +18,7 @@ cfg_if::cfg_if! {
         pub mod generate_batch_proof_miner_reward_proofs;
         pub mod claim_reward_v2;
         pub mod get_psy_sdc_fingerprint;
+        pub mod get_user_endcap_common_data;
     }
 }
 
@@ -99,4 +100,6 @@ pub enum Commands {
     ClaimRewardV2(crate::subcommand::args::ClaimRewardV2Args),
 
     GetPsySdcFingerprint(crate::subcommand::args::GetPsySdcFingerprintArgs),
+
+    GetUserEndCapCommonData,
 }
