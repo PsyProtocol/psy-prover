@@ -40,30 +40,29 @@ impl SignType {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Hash, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Hash, Eq, Debug, Default)]
 pub struct DPNSoftwareDefinedCallData {
-    pub contract_id: u64,
     pub inputs: Vec<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ContractCallData {
     pub contract_calls: Vec<ContractCallArgs>,
-    pub software_defined_call: Option<DPNSoftwareDefinedCallData>,
+    pub software_defined_call: DPNSoftwareDefinedCallData,
 }
 
 impl ContractCallData {
     pub fn new(contract_calls: Vec<ContractCallArgs>) -> Self {
         Self {
             contract_calls,
-            software_defined_call: None,
+            software_defined_call: DPNSoftwareDefinedCallData { inputs: vec![] },
         }
     }
 
     pub fn with_software_defined(contract_calls: Vec<ContractCallArgs>, software_defined_call: DPNSoftwareDefinedCallData) -> Self {
         Self {
             contract_calls,
-            software_defined_call: Some(software_defined_call),
+            software_defined_call: software_defined_call,
         }
     }
 }
@@ -100,8 +99,6 @@ pub struct WalletSessionArgs {
     #[clap(long, action = clap::ArgAction::Append)]
     pub inputs: Vec<String>,
 
-    #[clap(long)]
-    pub sign_contract_id: Option<u64>,
     #[clap(long)]
     pub sign_inputs: Vec<u64>,
 
@@ -141,22 +138,11 @@ impl WalletSessionArgs {
             anyhow::bail!("Must specify either --contract-calls-file or --contract-id parameters");
         }
 
-        let software_defined_call = if let Some(sign_contract_id) = self.sign_contract_id {
-            if !self.sign_inputs.is_empty() {
-                Some(DPNSoftwareDefinedCallData {
-                    contract_id: sign_contract_id,
-                    inputs: self.sign_inputs.clone(),
-                })
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
         Ok(ContractCallData {
             contract_calls,
-            software_defined_call,
+            software_defined_call: DPNSoftwareDefinedCallData {
+                inputs: self.sign_inputs.clone(),
+            },
         })
     }
 }

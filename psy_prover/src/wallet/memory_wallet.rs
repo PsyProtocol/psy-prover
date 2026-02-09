@@ -11,6 +11,7 @@ use plonky2::{
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+use psy_config::network_constants::{DEFAULT_CALLER_CONTRACT_ID_U64, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::{
@@ -307,20 +308,21 @@ impl PsyMemoryWallet {
     pub async fn register_psy_software_defined_circuit(
         &mut self,
         fn_def: psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition,
-        contract_id: u64,
-        contract_state_tree_height: u8,
-        session_proof_tree_height: u8,
         force_four_align: bool,
     ) -> anyhow::Result<QHashOut<F>> {
+        if !fn_def.is_view_function() {
+            bail!("Cannot register view function as software defined circuit");
+        }
+
         let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
         let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<F, D>::new(config);
 
         let mut gadget = DPNSoftwareDefinedSignatureGadget::add_virtual_to(
             &mut builder,
             &fn_def,
-            contract_id,
-            contract_state_tree_height,
-            session_proof_tree_height,
+            DEFAULT_CALLER_CONTRACT_ID_U64,
+            MAX_CONTRACT_STATE_TREE_HEIGHT,
+            UPS_SESSION_PROOF_TREE_HEIGHT,
             force_four_align,
         );
         gadget.build_circuit(builder)?;

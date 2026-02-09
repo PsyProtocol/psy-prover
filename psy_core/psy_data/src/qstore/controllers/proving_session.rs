@@ -2,7 +2,10 @@ use hashbrown::HashMap;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{field::types::PrimeField64, hash::hash_types::RichField};
 use psy_common::data::qhashout::QHashOut;
-use psy_config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT};
+use psy_config::network_constants::{
+    DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT,
+    MAX_CONTRACT_STATE_TREE_HEIGHT,
+};
 use psy_crypto::{
     common::user_id::get_registration_id_from_user_id,
     hash::{
@@ -497,15 +500,22 @@ impl<
 
         let start_user_contract_tree_root = contract_state_root_proof.root;
         let start_contract_state_tree_root = if contract_state_root_proof.value.eq(&QHashOut::ZERO) {
-            let state_tree_height = self
-                .cmd_store
-                .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
-                    contract_id: contract_id.to_canonical_u64(),
-                })
-                .await?
-                .state_tree_height
-                .to_canonical_u64() as usize;
-            self.set_contract_state_slot(contract_id, F::ZERO, QHashOut::ZERO).await?;
+            let state_tree_height = if contract_id == F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64) {
+                tracing::debug!("use default contract state tree root");
+                MAX_CONTRACT_STATE_TREE_HEIGHT as usize
+            } else {
+                tracing::debug!("use contract state tree root from contract leaf");
+                let state_tree_height = self
+                    .cmd_store
+                    .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
+                        contract_id: contract_id.to_canonical_u64(),
+                    })
+                    .await?
+                    .state_tree_height
+                    .to_canonical_u64() as usize;
+                self.set_contract_state_slot(contract_id, F::ZERO, QHashOut::ZERO).await?;
+                state_tree_height
+            };
             H::get_zero_hash(state_tree_height)
         } else {
             contract_state_root_proof.value
@@ -513,6 +523,7 @@ impl<
 
         let caller_contract_id = self.last_transaction_record().call_data.call_data.caller_contract_id;
 
+        tracing::debug!("get_call_start_data.caller_contract_id: {}", caller_contract_id);
         let call_data = DPNProvingSessionCompactMethodCall {
             caller_contract_id,
             contract_id,
@@ -520,10 +531,14 @@ impl<
             inputs_length: F::from_canonical_u64(inputs.len() as u64),
             inputs_hash: safe_hash_fixed_length::<H, F>(inputs),
         };
-
+        tracing::debug!("get_call_start_data.call_data: {}", serde_json::to_string_pretty(&call_data).unwrap());
         let start_deferred_tx_debt_tree_root = self.get_latest_deferred_tx_leaf()?.root;
         let start_user_balance = F::ZERO;
         let start_user_event_index = self.get_event_index();
+        tracing::debug!(
+            "get_call_start_data.start_deferred_tx_debt_tree_root: {}",
+            start_deferred_tx_debt_tree_root
+        );
 
         Ok(DapenCFCUserTransactionCallStartContext {
             start_user_contract_tree_root,
@@ -620,6 +635,7 @@ impl<
         Ok(res)
     }
     async fn set_contract_state_slot_inner(&mut self, contract: F, slot: F, value: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        tracing::debug!("set_contract_state_slot_inner.contract: {}", contract);
         let state_tree_height = self
             .cmd_store
             .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
@@ -657,6 +673,12 @@ impl<
         Ok(result)
     }
     pub async fn get_contract_state_slot(&mut self, contract: F, slot: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        tracing::debug!("Proving session - slot: {}", slot);
+        if contract == F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64) {
+            tracing::debug!("use default empty contract state tree for local contract");
+            let empty_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(MAX_CONTRACT_STATE_TREE_HEIGHT);
+            return Ok(empty_tree.get_leaf(slot.to_canonical_u64()));
+        }
         let state_tree_height = self
             .cmd_store
             .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
@@ -686,7 +708,8 @@ impl<
         id.get_leaf_ucs(&self.state_tree_store, self.write_checkpoint_u64, slot.to_canonical_u64())
     }
     pub async fn get_self_user_contract_tree_leaf(&mut self, contract_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        let old_upper_merkle_proof = self
+        let is_default_contract = contract_id == F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64);
+        let old_upper_merkle_proof = match self
             .cmd_store
             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(
                 QSRMerkleCmdGetUserContractTreeMerkleProof {
@@ -695,7 +718,16 @@ impl<
                     contract_id: contract_id.to_canonical_u64() as u32,
                 },
             ))
-            .await?;
+            .await
+        {
+            Ok(proof) => proof,
+            Err(e) if is_default_contract => {
+                tracing::debug!("use default empty user contract tree for local contract: {}", e);
+                let empty_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(GLOBAL_CONTRACT_TREE_HEIGHT);
+                return Ok(empty_tree.get_leaf(contract_id.to_canonical_u64()));
+            }
+            Err(e) => return Err(e),
+        };
 
         UserContractTreeStore::<KVQSimpleMemoryBackingStore, F, H>::injest_merkle_proof_sfc(
             &mut self.state_tree_store,
@@ -738,6 +770,10 @@ impl<
     }
 
     async fn update_contract_state_root_in_user_contract_tree(&mut self, contract_id: F) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        if contract_id == F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64) {
+            let empty_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(MAX_CONTRACT_STATE_TREE_HEIGHT);
+            return Ok(empty_tree.get_leaf(DEFAULT_CALLER_CONTRACT_ID_U64).to_delta_merkle_proof());
+        }
         let latest_root = self.get_contract_state_slot(contract_id, F::ZERO).await?.root;
 
         let old_upper_merkle_proof = self
@@ -868,6 +904,7 @@ impl<
     }
 
     pub async fn get_contract_inclusion_proof(&mut self, contract_id: u32) -> anyhow::Result<PsyContractInclusionProof<F>> {
+        tracing::debug!("get_contract_inclusion_proof.contract_id: {}", contract_id);
         let contract_leaf = self
             .cmd_store
             .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {

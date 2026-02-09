@@ -731,6 +731,18 @@ impl<
             .await
     }
 
+    pub async fn exec_deferred_contract_call_local(
+        &mut self,
+        caller_contract_id: F,
+        fn_circuit_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
+        self.lps.set_proof_tree_root(self.proof_tree_state.get_proof_tree_root().await);
+        PsyEvalSessionResult::new()
+            .exec_deferred_contract_call_local(&mut self.lps, caller_contract_id, fn_circuit_def, inputs)
+            .await
+    }
+
     pub async fn exec_contract_call(
         &mut self,
         contract_id: F,
@@ -738,6 +750,19 @@ impl<
         inputs: Vec<F>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
         self.exec_deferred_contract_call(contract_id, F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64), fn_circuit_def, inputs)
+            .await
+    }
+
+    pub async fn exec_contract_call_local(
+        &mut self,
+        fn_circuit_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
+        if !fn_circuit_def.is_view_function() {
+            anyhow::bail!("cannot call non-view function locally");
+        }
+
+        self.exec_deferred_contract_call_local(F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64), fn_circuit_def, inputs)
             .await
     }
 

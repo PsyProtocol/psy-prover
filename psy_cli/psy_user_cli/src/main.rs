@@ -344,6 +344,8 @@ async fn main() -> anyhow::Result<()> {
         // wallet session
         Commands::LocalProver(prover_args) => psy_prover::run_server(prover_args).await?,
         Commands::ProveProxy(prove_proxy_args) => crate::subcommand::prove_proxy::run(prove_proxy_args).await?,
+
+        Commands::GetPsySdcFingerprint(get_psy_sdc_fingerprint) => crate::subcommand::get_psy_sdc_fingerprint::run(get_psy_sdc_fingerprint).await?,
     }
     Ok(())
 }

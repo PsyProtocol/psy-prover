@@ -1188,6 +1188,28 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
         self.eval_session(fn_def, sesh, inputs).await
     }
 
+    pub async fn exec_deferred_contract_call_local<S>(
+        self,
+        sesh: &mut S,
+        caller_contract_id: F,
+        fn_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>>
+    where
+        S: PsyReadLocalProvingSessionStore<F>
+            + PsyEventsStore<F>
+            + PsyReadLocalProvingSessionStoreMut<F>
+            + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
+    {
+        self.exec_deferred_contract_call(
+            sesh,
+            F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
+            caller_contract_id,
+            fn_def,
+            inputs,
+        ).await
+    }
+
     pub async fn exec_contract_call<S>(
         self,
         sesh: &mut S,

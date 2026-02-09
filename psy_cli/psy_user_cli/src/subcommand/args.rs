@@ -521,3 +521,9 @@ pub struct ClaimRewardV2Args {
     #[clap(long, default_value = "worker.backup")]
     pub jobs_file: String,
 }
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct GetPsySdcFingerprintArgs {
+    #[clap(long, default_value = "sdc.json")]
+    pub sdc_path: String,
+}

@@ -1,5 +1,5 @@
 use psy_common::args::{SignType, WalletSessionArgs};
-use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_prover::session::WalletSession;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -29,16 +29,7 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
         }
         SignType::SoftwareDefinedDPNSign => {
             let user_sdc: DPNFunctionCircuitDefinition = serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
-            let fingerprint = wallet_session
-                .wallet
-                .register_psy_software_defined_circuit(
-                    user_sdc,
-                    args.sign_contract_id.unwrap(),
-                    MAX_CONTRACT_STATE_TREE_HEIGHT,
-                    UPS_SESSION_PROOF_TREE_HEIGHT,
-                    false,
-                )
-                .await?;
+            let fingerprint = wallet_session.wallet.register_psy_software_defined_circuit(user_sdc, false).await?;
             assert_eq!(info.fingerprint, fingerprint, "software-defined-dpn-sign key fingerprint mismatch");
         }
         _ => {}

@@ -63,6 +63,9 @@ REALM_USER_TREE_HEIGHT   := $(shell jq -r '.networks.localhost.realm_user_tree_h
 REALM_TREE_LEAF_LEVEL    := $(shell echo $$(($(GLOBAL_USER_TREE_HEIGHT) - $(REALM_USER_TREE_HEIGHT))))
 USER1_ID                 := 1
 
+SDC_PATH                 := "sdc.json"
+SDC_FINGERPRINT          := "136ed39299c17a8cc4ea84e0b676e74c70d2a1668abaf346088d2df4087304c5"
+
 run-prove-proxy:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli prove-proxy
 
@@ -216,6 +219,15 @@ get-user-contract-tree-merkle-proof:
 
 get-user-contract-state-tree-merkle-proof:
 	@./target/${PROFILE}/psy_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
+
+get-psy-sdc-fingerprint:
+	@./target/${PROFILE}/psy_user_cli get-psy-sdc-fingerprint --sdc-path ${SDC_PATH}
+
+register-sdc-user: 
+	@./target/${PROFILE}/psy_user_cli register-user --private-key ${USER0_PRIVATE_KEY} --fingerprint ${SDC_FINGERPRINT} --sign-type "software-defined-dpn"
+
+mint-sdc:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type "software-defined-dpn" --fingerprint ${SDC_FINGERPRINT}
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

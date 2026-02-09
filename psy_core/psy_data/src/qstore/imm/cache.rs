@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use plonky2::hash::hash_types::RichField;
 use psy_common::data::qhashout::QHashOut;
+use psy_config::network_constants::{DEFAULT_CALLER_CONTRACT_ID_U64, MAX_CONTRACT_STATE_TREE_HEIGHT};
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 
 use super::{
@@ -234,6 +235,14 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F> + QUserIdManager + Send> Ps
     }
 
     async fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>> {
+        if input.contract_id == DEFAULT_CALLER_CONTRACT_ID_U64 {
+            return Ok(PsyContractLeaf {
+                deployer: QHashOut::default(),
+                function_tree_root: QHashOut::default(),
+                code_root: QHashOut::default(),
+                state_tree_height: F::from_canonical_u8(MAX_CONTRACT_STATE_TREE_HEIGHT),
+            });
+        }
         if self.cache.contract_leaf_cache.contains_key(&input.contract_id) {
             Ok(self.cache.contract_leaf_cache.get(&input.contract_id).unwrap().clone())
         } else {

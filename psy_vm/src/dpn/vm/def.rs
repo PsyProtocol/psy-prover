@@ -51,3 +51,19 @@ pub struct DPNFunctionCircuitDefinition {
     #[serde(default)]
     pub events: Vec<DPNEventRecord>,
 }
+
+impl DPNFunctionCircuitDefinition {
+    pub fn is_view_function(&self) -> bool {
+        !self.state_commands.iter().any(|cmd| {
+            matches!(
+                cmd,
+                DPNStateCmd::SetContractStateSlotHash(_)
+                    | DPNStateCmd::SetContractStateSlotSingle(_)
+                    | DPNStateCmd::SetContractStateSlotRange(_)
+                    | DPNStateCmd::ClearEntireTree(_)
+                    | DPNStateCmd::InvokeExternalContractFunctionSync(_)
+                    | DPNStateCmd::InvokeExternalContractFunctionDeferred(_)
+            )
+        })
+    }
+}

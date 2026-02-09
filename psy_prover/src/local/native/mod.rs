@@ -10,7 +10,7 @@ use jsonrpsee::{
 use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::{
-    args::{ContractCallArgs, ContractCallData},
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData},
     data::qhashout::QHashOut,
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
@@ -126,7 +126,12 @@ impl RpcServer for RpcServerImpl {
     async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
         let wallet_session = self.wallet_session.clone();
         let hash = tokio::task::spawn_blocking(move || {
-            tokio::runtime::Handle::current().block_on(async move { wallet_session.read().sign_and_submit(public_key, None).await })
+            tokio::runtime::Handle::current().block_on(async move {
+                wallet_session
+                    .read()
+                    .sign_and_submit(public_key, DPNSoftwareDefinedCallData::default())
+                    .await
+            })
         })
         .await
         .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?
