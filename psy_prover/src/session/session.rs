@@ -147,6 +147,10 @@ where
 {
     circuit_mgr.register_contract_circuits(contract_id, &contract_code).await?;
 
+    let (fn_id, dapen_fc) = circuit_mgr
+        .resolve_contract_function_by_method_name(contract_id, &contract_code, fn_name.to_string())
+        .await?;
+
     mgr.prove_standard_call(circuit_mgr, F::from_canonical_u64(contract_id), fn_id as u32, &dapen_fc, inputs)
         .await
 }

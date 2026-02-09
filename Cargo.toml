@@ -20,7 +20,7 @@ edition = "2021"
 rust-version = "1.86"
 version = "0.1.0"
 homepage = "https://psy.xyz"
-repository = "https://github.com/PsyProtocol/psy-v1"
+repository = "https://github.com/PsyProtocol/psy-v3"
 
 [workspace.lints]
 

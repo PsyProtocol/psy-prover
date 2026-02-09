@@ -1,13 +1,5 @@
-export SQLX_OFFLINE=true
-
 PROFILE := release
-LOG_LEVEL := psy_ups_circuit=trace,psy_dpn_circuit=trace,psy_user_cli=debug,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
-
-BACKUP ?= false
-ifeq ($(BACKUP),true)
-	# you must set aws credentials and config in under ~/.aws folder or in environment variables if you want to enable backup
-	export PSY_BACKUP_BUCKET=psy-backup
-endif
+LOG_LEVEL := psy_ups_circuit=trace,psy_dpn_circuit=trace,psy_user_cli=debug,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,plonky2=error
 
 default: build
 
@@ -18,7 +10,7 @@ fix:
 	# @cargo machete --fix
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
-build: 
+build:
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli
 
 fmt:
@@ -30,20 +22,8 @@ install:
 clean:
 	@rm -rf target
 
-WATCHED_DIRS := psy_network_circuit psy_common_circuit psy_dpn_circuit psy_ups_circuit psy_core/psy_config/src/network_constants.rs psy_core/psy_crypto/src/common/user_id.rs
 
-config_gen_v2:
-	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
-		echo "Changes detected in watched directories. Running config_gen_v2..."; \
-		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package psy_prover --example config_gen_v2; \
-	else \
-		echo "No changes detected in watched directories. Skipping config_gen_v2."; \
-	fi
-
-config_gen:
-	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package psy_prover --example config_gen_v2;
-
-.PHONY: check fix build format run test update-snapshots
+.PHONY: check fix build fmt
 
 ################################################################################
 #                                   TMP                                        #
@@ -127,13 +107,6 @@ deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --abi-path ${PROJECT_DIR}/token/target/token.abi.json --is-deploy
 	@echo "USER1 deploying token contract..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --abi-path ${PROJECT_DIR}/token/target/token.abi.json --is-deploy
-
-get-deploy-contract-cmd:
-	@echo "Deploying contracts..."
-	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/token.json --output-path ./target/
-	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PWD}/token.json --output-path ./target/
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}

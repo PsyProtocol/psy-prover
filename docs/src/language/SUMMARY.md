@@ -2,6 +2,8 @@
 
 
 - [Introduction](./introduction.md)
+- [Design Philosophy](./design_philosophy.md)
+- [Language Features](./features.md)
 - [Before We Begin](./before_we_begin.md)
     - [Set up your IDE](./setup_your_ide.md)
   - [Set up Shell Completions](./setting_up_shell_completions.md)
@@ -11,6 +13,7 @@
 - [Structs and Implementations](./structs_and_impls.md)
 - [Traits and Generics](./traits_and_generics.md)
 - [Storage and Contracts](./storage_and_contracts.md)
+- [Contract Deployment Architecture](./contract_deployment.md)
 - [Control Flow](./control_flow.md)
 - [Functions and Closures](./functions_and_closures.md)
 - [Arrays and Tuples](./arrays_and_tuples.md)

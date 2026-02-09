@@ -9,8 +9,8 @@ This document introduces how to use the Psy language server `psy-lsp-server` for
 1. Clone repository:
 
 ```bash
-  git clone https://github.com/PsyProtocol/psy-v1.git
-  cd psy-lang
+  git clone https://github.com/PsyProtocol/psy-compiler.git
+  cd psy-compiler
 ```
 
 2. Compile `psy-lsp-server`：
@@ -44,215 +44,198 @@ const serverExecutable = path.join(
     context.extensionPath, '..', '..', 'target', 'release', 'psy-lsp-server'
 );
 ```
-If you need to change the path (for example, to use a different build directory or binary location), please modify this line accordingly and then rebuild the extension by running:
+This assumes you've built the LSP server in the `psy-compiler` directory. If you need to change the path (for example, to use a different build directory or binary location), please modify this line accordingly and then rebuild the extension by running:
 ```bash
   npm run build
 ```
 
-## 🧑‍💻 Neovim usage tutorial (based on Lazy.nvim)
-This guide demonstrates how to set up the **Psy language server (`psy-lsp-server`)** in Neovim using the **lazy.nvim** plugin manager.
+## 🧑‍💻 Neovim Configuration for Psy
 
-> ⚠️ **Note**: The `psy-lsp-server` binary must be compiled first and accessible in your system. Ensure the path to the binary is correct.
+This guide shows how to configure Neovim for Psy development using the Language Server Protocol.
+
+> ⚠️ **Prerequisites**: Ensure `psy-lsp-server` is installed and available in your PATH.
 
 ---
-### 1️⃣ Plugin Installation
 
-In your `init.lua`, make sure to install the necessary plugins:
+### 1️⃣ File Type Detection
+
+Add this to your Neovim configuration to recognize `.psy` and `.qed` files:
 
 ```lua
-require("lazy").setup({
-  { "neovim/nvim-lspconfig" },             -- LSP support
-  { "nvim-treesitter/nvim-treesitter", build = ":TSUpdate" }, -- syntax highlighting
-  { "hrsh7th/nvim-cmp" },                  -- completion
-  { "hrsh7th/cmp-nvim-lsp" },              -- LSP completion source
+-- File type detection for Psy files
+vim.api.nvim_create_augroup("FiletypeConfig", { clear = true })
+
+vim.api.nvim_create_autocmd({ "BufNewFile", "BufReadPost" }, {
+    pattern = "*.psy",
+    group = "FiletypeConfig",
+    callback = function()
+        vim.bo.filetype = "psy"
+    end,
+})
+
+vim.api.nvim_create_autocmd({ "BufNewFile", "BufReadPost" }, {
+    pattern = "*.qed",
+    group = "FiletypeConfig",
+    callback = function()
+        vim.bo.filetype = "qed"
+    end,
 })
 ```
-### 2️⃣ Psy LSP Setup via Lazy
-```lua
-local lspconfig = require("lspconfig")
-local configs = require("lspconfig.configs")
 
--- Register custom LSP
-if not configs.psy_lsp then
-configs.psy_lsp = {
-   default_config = {
-      cmd = {"/full path/to/psy-lsp-server" }, -- ⚠️ Note to fill in the full path
-      filetypes = {"psy"},
-      root_dir = lspconfig.util.root_pattern("Dargo.toml"),
-      settings = {},
-   },
+### 2️⃣ LSP Configuration
+
+Configure the Psy language server:
+
+```lua
+-- Configure Psy LSP
+vim.lsp.config('psy_lsp', {
+    cmd = { "psy-lsp-server" },
+    filetypes = { "psy", "qed" },
+    root_markers = { "Dargo.toml" },
+    settings = {},
+})
+
+-- Enable Psy LSP
+vim.lsp.enable('psy_lsp')
+```
+
+### 3️⃣ Syntax Highlighting
+
+Configure Tree-sitter to use Rust highlighting for Psy files:
+
+```lua
+-- Reuse Rust syntax highlighting for Psy files
+vim.treesitter.language.register("rust", "psy")
+vim.treesitter.language.register("rust", "qed")
+```
+
+### 4️⃣ LSP Key Mappings
+
+Set up key bindings for LSP functionality:
+
+```lua
+-- LSP key mappings
+vim.api.nvim_create_autocmd("LspAttach", {
+    desc = "LSP actions",
+    callback = function(event)
+        local bufmap = function(mode, lhs, rhs)
+            local opts = { buffer = true }
+            vim.keymap.set(mode, lhs, rhs, opts)
+        end
+
+        -- Core LSP navigation
+        bufmap("n", "gd", "<cmd>lua vim.lsp.buf.definition()<cr>")
+        bufmap("n", "gr", "<cmd>lua vim.lsp.buf.references()<cr>")
+        bufmap("n", "gi", "<cmd>lua vim.lsp.buf.implementation()<cr>")
+        bufmap("n", "gy", "<cmd>lua vim.lsp.buf.type_definition()<cr>")
+
+        -- Code actions and formatting
+        bufmap("n", "<leader>f", "<cmd>lua vim.lsp.buf.format()<cr>")
+        bufmap("n", "<leader>rn", "<cmd>lua vim.lsp.buf.rename()<cr>")
+        bufmap("n", "<leader>ca", "<cmd>lua vim.lsp.buf.code_action()<cr>")
+    end,
+})
+```
+
+### 5️⃣ Comment Support
+
+Configure comment strings for Psy files:
+
+```lua
+-- Comment configuration for Psy
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = { "psy", "qed" },
+    callback = function()
+        vim.bo.commentstring = "//%s"
+    end,
+})
+```
+
+### 6️⃣ Complete Configuration Example
+
+Here's a complete minimal configuration for Psy development:
+
+```lua
+-- File type detection
+vim.api.nvim_create_augroup("FiletypeConfig", { clear = true })
+
+local filetypes = {
+    psy = "*.psy",
+    qed = "*.qed",
 }
+
+for filetype, pattern in pairs(filetypes) do
+    vim.api.nvim_create_autocmd({ "BufNewFile", "BufReadPost" }, {
+        pattern = pattern,
+        group = "FiletypeConfig",
+        callback = function()
+            vim.bo.filetype = filetype
+        end,
+    })
 end
 
-lspconfig.psy_lsp.setup({})
+-- LSP configuration
+vim.lsp.config('psy_lsp', {
+    cmd = { "psy-lsp-server" },
+    filetypes = { "psy", "qed" },
+    root_markers = { "Dargo.toml" },
+    settings = {},
+})
 
--- Let Neovim recognize the `.psy` file type
-vim.filetype.add({
-   extension = {
-      psy = "psy",
-   },
+vim.lsp.enable('psy_lsp')
+
+-- Syntax highlighting
+vim.treesitter.language.register("rust", "psy")
+vim.treesitter.language.register("rust", "qed")
+
+-- Comment support
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = { "psy", "qed" },
+    callback = function()
+        vim.bo.commentstring = "//%s"
+    end,
+})
+
+-- LSP key mappings
+vim.api.nvim_create_autocmd("LspAttach", {
+    desc = "LSP actions",
+    callback = function(event)
+        local bufmap = function(mode, lhs, rhs)
+            local opts = { buffer = true }
+            vim.keymap.set(mode, lhs, rhs, opts)
+        end
+
+        bufmap("n", "gd", "<cmd>lua vim.lsp.buf.definition()<cr>")
+        bufmap("n", "gr", "<cmd>lua vim.lsp.buf.references()<cr>")
+        bufmap("n", "<leader>f", "<cmd>lua vim.lsp.buf.format()<cr>")
+        bufmap("n", "<leader>rn", "<cmd>lua vim.lsp.buf.rename()<cr>")
+        bufmap("n", "<leader>ca", "<cmd>lua vim.lsp.buf.code_action()<cr>")
+    end,
 })
 ```
 
+### 📚 Key Bindings Summary
 
-Instead of manually configuring LSP in init.lua, you can configure it via Lazy plugin opts.
-Create a file like `~/.config/nvim/lua/plugins/lsp.lua` and write:
-```lua
-return {
-  "neovim/nvim-lspconfig",
-  opts = function(_, opts)
-    -- Tell Neovim `.psy` files are of type `psy`
-    vim.filetype.add({ extension = { psy = "psy" } })
-
-    -- Reuse Rust Tree-sitter highlighting for `.psy` files
-    vim.treesitter.language.register("rust", "psy")
-
-    -- Load LSP config
-    local lspconfig = require("lspconfig")
-    local configs = require("lspconfig.configs")
-
-    -- Register psy_lsp_server only once
-    if not configs.psy_lsp_server then
-      configs.psy_lsp_server = {
-        default_config = {
-          cmd = { "/full/path/to/psy-lsp-server" }, -- 🔧 Replace with your built binary
-          filetypes = { "psy" },
-          root_dir = lspconfig.util.root_pattern("Dargo.toml", ".psy"),
-          settings = {},
-        },
-      }
-    end
-
-    -- Attach server config to Lazy's LSP handler
-    opts.servers.psy_lsp_server = {}
-    return opts
-  end,
-}
-```
-
- ✅ Once you’ve saved this config, reopen Neovim and run :Lazy sync to apply it.
-
-✅ Additional Notes
-* 	`vim.filetype.add(...)` tells Neovim that `.psy` files should be handled as the psy filetype.
-* 	`vim.treesitter.language.register("rust", "psy")` means `.psy`files will reuse Rust’s highlighting engine via Tree-sitter.
-*	Make sure the `psy-lsp-server` binary is either in your PATH or referenced using the full path.
-
-###  3️⃣ Navigation & Reference Lookup in Neovim
-Once your psy-lsp-server is properly registered and running in Neovim, you can use the following built-in LSP keybindings to navigate your Psy code efficiently.
-```lua
--- Place these in your init.lua or keymap config file if not already present
-vim.keymap.set("n", "gd", vim.lsp.buf.definition, { noremap = true, desc = "Go to Definition" })
-vim.keymap.set("n", "gr", vim.lsp.buf.references, { noremap = true, desc = "Find References" })
-vim.keymap.set("n", "K", vim.lsp.buf.hover, { noremap = true, desc = "Hover Documentation" })
-vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, { noremap = true, desc = "Rename Symbol" })
-vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { noremap = true, desc = "Format Document" })
-```
-📚 Common shortcut keys description
-
-| Shortcuts | Functional description |
-|---------------|--------------------------|
-| `gd` | Jump to definition |
-| `gr` | Find all references |
-| `K` | Hover type information |
+| Key Binding | Function |
+|-------------|----------|
+| `gd` | Go to definition |
+| `gr` | Find references |
+| `gi` | Go to implementation |
+| `gy` | Go to type definition |
+| `<leader>f` | Format document |
 | `<leader>rn` | Rename symbol |
-| `<leader>f` | Code formatting |
-| `<C-o>` | Return to previous position (built-in) |
+| `<leader>ca` | Code actions |
 
 
-## ⚙️ RustRover usage tutorial (based on LSP4IJ plugin)
+## 🔧 Additional IDE Support
 
-This tutorial assumes that you have already completed the configuration of Rust in RustRover.
+While VSCode and Neovim have official configuration guides, other IDEs may be supported through generic LSP clients. If you're using a different IDE that supports LSP, you can configure it to use `psy-lsp-server` as the language server for `.psy` files.
 
-We will use the LSP plugin `LSP Support (lsp4ij)` provided by RedHat to enable custom LSP support for `.psy` files, realizing functions such as jump, hover, reference lookup, code formatting, etc.
+**General LSP Configuration:**
+- **Server Command**: `psy-lsp-server`
+- **File Extensions**: `*.psy`
+- **Language ID**: `psy`
+- **Root Pattern**: `Dargo.toml`
 
----
-
-### 📦 Step 1: Install the LSP4IJ plugin
-
-1. Open RustRover and click `RustRover > Settings` in the upper left corner (or use the shortcut `Cmd + ,`).
-2. Go to `Plugins > Marketplace`.
-3. Search for **lsp4ij** .
-4. Click Install and restart the IDE after the installation is complete.
----
-
-
-### ✅ Step 2: Create a Psy file type
-
-1. Open `Settings` → `Editor` → `File Types`
-
-2. Click **"+" Add** at the top to create a new File Type
-
-3. Name: `Psy`
-
-4. Description: `Psy language`
-
-5. Configure highlighting (optional)
- fill in the following fields:
-
-| Field name | Suggested value |
-|------------------------------|--------------------------|
-| **Line Comment** | `//` |
-| **Block Comment Start** | `/*` |
-| **Block Comment End** | `*/` |
-| **Hex Prefix** | `0x` (optional) |
-| **Number Postfixes** | `u32` (optional) |
-| ✅ **Support Paired Braces** | ✔ Check |
-| ✅ **Support Paired Brackets** | ✔ Check |
-| ✅ **Support Paired Parentheses** | ✔ Check |
-| ✅ **Support String Escapes** | ✔ Check |
-
-Then click Save.
-
-### 🧠 Step 3: Configure the Language Server of Psy language
-
-Open `Settings > Languages && Frameworks > Language Servers`, we need to add a new configuration, click the plus sign ➕, there are three tabs in the new interface: **Server**, **Mapping** and **Configuration**.
-
-#### ▶️ Server tab
-
-Used to register a new LSP service.
-
-- **Name**: Fill in `Psy language server`.
-- **Environment Variables**: Leave it blank (optional, if you need to set `DARGO_STD_PATH`, you can fill it in here).
-- **Command**: Fill in the path of your compiled LSP executable file, for example: `/Users/UserName/bin/psy-lsp-server`
-
----
-
-#### ▶️ Mapping tab
-
-Used to map file types to language services.
-
-- **Language**: Leave it blank.
-- **FileType**: Click ➕, select `Psy` on the left, and enter `psy` on the right
-  - Note: If there is no `Psy` option, please go back to step 2 and add the file type again.
-- **Filename Patterns**: Click ➕, enter `*.psy` on the left, and enter `psy` on the right
-
-📌 Note:
-
-- The left side is the file type inside the IDE .
-- The right side is the Language ID of the LSP Server, which needs to match your `textDocument.languageId`
----
-
-#### ▶️ Configuration (optional)
-
-You can set:
-
-- **Server Trace Level**: Set to `Verbose` to view more debugging information
-
-- **Client Trace Level**: Set to `Verbose` or `Info`
-- To view LSP communication logs, it is recommended to open the `LSP Console` view
----
-
-
-### ✅ Step 4: Verify if it works
-
-1. Open a Psy project with `Dargo.toml`
-2. Open the `.psy` file
-3. You can try:
-- `Hover` to view the type
-- `Go to Definition`
-- `Find References`
-- `Format Document`
-
-
-You can check the debug log in `View > Tool Windows > LSP Console` to confirm whether LSP is started correctly.
+For specific IDE setup instructions, please refer to your IDE's LSP configuration documentation.
 

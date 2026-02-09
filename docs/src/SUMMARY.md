@@ -17,20 +17,73 @@
 
 # Language Documentation
 - [Introduction](./language/introduction.md)
+- [Design Philosophy](./language/design_philosophy.md)
+- [Language Features](./language/features.md)
 - [Before We Begin](./language/before_we_begin.md)
     - [Set up your IDE](./language/setup_your_ide.md)
     - [Set up Shell Completions](./language/setting_up_shell_completions.md)
 - [Hello, World!](./language/hello_world.md)
 - [Basic Syntax](./language/basic_syntax.md)
-- [Modules and Visibility](./language/modules_and_visibility.md)
+- [Operators](./language/operators.md)
 - [Structs and Implementations](./language/structs_and_impls.md)
-- [Traits and Generics](./language/traits_and_generics.md)
-- [Storage and Contracts](./language/storage_and_contracts.md)
-- [Control Flow](./language/control_flow.md)
-- [Functions and Closures](./language/functions_and_closures.md)
 - [Arrays and Tuples](./language/arrays_and_tuples.md)
+- [Conditional Statements](./language/control_flow.md)
+- [Loops](./language/loops.md)
+- [Functions](./language/functions.md)
+- [Storage and Contracts](./language/storage_and_contracts.md)
+- [Built-in Functions and Standard Library](./language/built_in_functions.md)
+- [Contract Deployment Architecture](./language/contract_deployment.md)
+- [Closures](./language/closures.md)
+- [Modules and Visibility](./language/modules_and_visibility.md)
+- [Traits and Generics](./language/traits_and_generics.md)
 - [Testing](./language/testing.md)
+- [Real-World Applications](./language/real_world_examples.md)
 - [Dargo](./language/dargo.md)
+
+---
+
+# SDK Documentation
+- [SDK Overview](./sdk/overview.md)
+- [Rust SDK](./sdk/rust.md)
+- [TypeScript SDK](./sdk/typescript.md)
+
+# SDKeys Documentation  
+- [SDKeys Overview](./sdkeys/overview.md)
+- [Signature Schemes](./sdkeys/signature-schemes.md)
+- [Wallet Management](./sdkeys/wallet-management.md)
+- [Advanced Circuits](./sdkeys/advanced-circuits.md)
+
+---
+
+# Mining Documentation  
+- [Miner Setup](./miner/setup.md)
+- [Mining Configuration](./miner/configuration.md)
+- [Performance Optimization](./miner/optimization.md)
+
+---
+
+# Node Documentation
+- [Node Architecture](./node/architecture.md)
+- [Installation](./node/installation.md)
+- [Configuration](./node/configuration.md)
+- [Getting Started](./node/getting_started.md)
+- [API Reference](./rpc/UserCli.md)
+
+---
+
+
+# Tutorials
+<!-- - [Getting Started Tutorial](./tutorials/getting_started.md) -->
+<!-- - [Building Your First Contract](./tutorials/first_contract.md) -->
+<!-- - [Advanced Patterns](./tutorials/advanced_patterns.md) -->
+
+---
+
+# VM Documentation
+- [Bytecode Operations](./vm/bytecode.md)
+- [Execution Model](./vm/execution.md)
+<!-- - [VM Architecture](./vm/architecture.md) -->
+<!-- - [Performance Analysis](./vm/performance.md) -->
 
 ---
 
@@ -38,6 +91,8 @@
 - [User CLI RPC Methods](./rpc/UserCli.md)
 - [Realm Edge RPC Methods](./rpc/RealmRpc.md)
 - [Coordinator Edge RPC Methods](./rpc/CoordinatorRpc.md)
+- [API Services RPC Methods](./rpc/ApiServices.md)
+- [Prover Proxy RPC Methods](./rpc/ProverProxy.md)
 
 ---
 

@@ -6,32 +6,36 @@ This chapter walks you through creating your first [Psy Smart Contract Language]
 
 Create a new project:
 
-```
+```bash
 dargo new hello_world
 ```
 
+This creates a new directory with a basic project structure. Navigate to the project and edit the `src/main.psy` file:
+
 ```rust
-fn main(x: Felt, y: Felt) {
-    assert(x == y, "x != y");
-}
-
-#[test]
-fn test_main() {
-    main(1, 1);
-
-    // Uncomment to make test fail
-    // main(1, 2);
+// input: 2,3
+// output: 5
+fn main(a: Felt, b: Felt) -> Felt {
+    assert(a < b, "a should be less than b");
+    assert_eq(b - a, 1, "b - a should equal 1");
+    return a + b;
 }
 ```
+
+This simple program:
+- Takes two `Felt` parameters (`a` and `b`)
+- Asserts that `a` is less than `b`
+- Asserts that the difference is exactly 1
+- Returns the sum of `a` and `b`
 
 ## Compiling
 
-run the program using the compiler:
-```
+Compile the program using the compiler:
+```bash
 dargo compile
 ```
 
-You will see a target directory. Open the `hello_world.json` inside and you'll be able to see the target code for psy. The psy smart contract language generates this code for each function in the contract and deploys it to the blockchain.
+You will see a target directory created with the compiled output. The Psy compiler generates DPN opcodes and circuit data for each function.
 
 ```
 [
@@ -93,6 +97,10 @@ You will see a target directory. Open the `hello_world.json` inside and you'll b
 
 ## Running
 
+Execute the program with test inputs:
+
+```bash
+dargo execute --program-dir . --entry-path src/main.psy --parameters 2,3
 ```
 
-```
+This runs the `main` function with the parameters `2` and `3`. You should see the output `result_vm: [5]` as the result.

@@ -939,7 +939,7 @@ impl<
                 slots_modified: F::from_canonical_u32(updates.total_slots_modified),
             },
             state_transition: UPSEndCapResultCompact {
-                start_user_leaf_hash: self.current_ups_header.session_start_context.start_session_user_leaf.qfhash::<H>(),
+                start_user_leaf_hash,
                 end_user_leaf_hash: self.current_ups_header.current_state.user_leaf.qfhash::<H>(),
                 checkpoint_tree_root_hash: self.current_ups_header.session_start_context.checkpoint_tree_root,
                 user_id: self.current_ups_header.session_start_context.start_session_user_leaf.user_id,
