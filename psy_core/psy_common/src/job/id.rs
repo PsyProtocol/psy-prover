@@ -959,16 +959,6 @@ impl QProvingJobDataID {
     }
 }
 
-// impl HistoryQueueMetadataTagged for QProvingJobDataID {
-//     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
-//         HistoryQueueMetadata {
-//             channel_id: REALM_PROCESSOR_TO_EDGE_CHANNEL,
-//             checkpoint_id: self.goal_id,
-//             item_id: self.task_index as u64, // Use task_index as item_id
-//         }
-//     }
-// }
-
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct QProvingJobDataIDWithRewardPath {
     pub job_data_id: QProvingJobDataID,
