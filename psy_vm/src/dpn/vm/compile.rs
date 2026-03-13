@@ -74,17 +74,8 @@ impl PsyCompileResult {
         }
     }
 
-    pub fn injest_sfr(&mut self, sym_store: &SymFeltStore, value: SymFeltRef) -> u64 {
-        if self.indexed_map.contains_key(&value) {
-            return *self.indexed_map.get(&value).unwrap();
-        }
-
-        let mut children_inds = sym_store
-            .get_direct_children(value)
-            .into_iter()
-            .map(|c| self.injest_sfr(sym_store, c))
-            .collect::<Vec<_>>();
-
+    /// Emit definition for one node. Call only when all children are already in indexed_map.
+    fn injest_sfr_emit(&mut self, sym_store: &SymFeltStore, value: SymFeltRef, children_inds: Vec<u64>) -> u64 {
         let new_base_index = match value.get_op_type().get_data_type() {
             DPNBuiltInDataType::Target => {
                 let v = self.total_targets;
@@ -143,7 +134,7 @@ impl PsyCompileResult {
             } else {
                 vec![]
             };
-            inputs.append(&mut children_inds);
+            inputs.extend(children_inds);
             self.definitions.push(DPNIndexedVarDef {
                 data_type: vdef.op_type.get_data_type(),
                 index: new_base_index,
@@ -151,10 +142,39 @@ impl PsyCompileResult {
                 inputs,
             });
         }
-
         let new_op_id = encode_indexed_op_id(value.get_op_type().get_data_type(), new_base_index);
         self.indexed_map.insert(value, new_op_id);
         new_op_id
+    }
+
+    /// Ingest a SymFeltRef into the circuit. Uses an explicit stack to avoid recursion and stack overflow on deep DAGs (e.g. large loops).
+    pub fn injest_sfr(&mut self, sym_store: &SymFeltStore, value: SymFeltRef) -> u64 {
+        if let Some(&id) = self.indexed_map.get(&value) {
+            return id;
+        }
+        let mut stack = vec![value];
+        while let Some(v) = stack.pop() {
+            if self.indexed_map.contains_key(&v) {
+                continue;
+            }
+            let children = sym_store.get_direct_children(v);
+            let all_ready = children.iter().all(|c| self.indexed_map.contains_key(c));
+            if !all_ready {
+                stack.push(v);
+                for c in children.iter().rev() {
+                    if !self.indexed_map.contains_key(c) {
+                        stack.push(*c);
+                    }
+                }
+                continue;
+            }
+            let children_inds: Vec<u64> = children
+                .iter()
+                .map(|c| *self.indexed_map.get(c).unwrap())
+                .collect();
+            self.injest_sfr_emit(sym_store, v, children_inds);
+        }
+        *self.indexed_map.get(&value).unwrap()
     }
 
     pub fn injest_state_cmd(&mut self, sym_store: &SymFeltStore, cmd: DPNStateCmd<SymFeltRef>) {
