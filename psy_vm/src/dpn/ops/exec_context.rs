@@ -228,13 +228,17 @@ impl QExecContext {
             let b_val = b.get_constant_value();
             return self.op_const(op_type.eval_binary_constant(a_val, b_val));
         }
+        let is_const_zero = |v: SymFeltRef| {
+            matches!(
+                v.get_op_type(),
+                DPNOpType::Constant | DPNOpType::ConstantTrue | DPNOpType::ConstantFalse
+            ) && v.get_constant_value() == 0
+        };
         if (op_type == DPNOpType::Add || op_type == DPNOpType::Sub) && b_type == DPNOpType::Constant && b.get_constant_value() == 0 {
             return a;
         }
-        if op_type == DPNOpType::Mul
-            && (a_type == DPNOpType::Constant && a.get_constant_value() == 0 || b_type == DPNOpType::Constant && b.get_constant_value() == 0)
-        {
-            return a;
+        if op_type == DPNOpType::Mul && (is_const_zero(a) || is_const_zero(b)) {
+            return self.op_const(0);
         }
         let value = SymFeltRefValue {
             op_type,
