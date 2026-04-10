@@ -514,7 +514,19 @@ pub struct PsyConfig<F: RichField> {
 
 impl<F: RichField> PsyConfig<F> {
     pub fn from_file(path: &str) -> Result<Self, ConfigError> {
-        let content = std::fs::read_to_string(path)?;
+        let content = match std::fs::read_to_string(path) {
+            Ok(content) => content,
+            Err(err) => {
+                // Backward compatibility for repo-root invocations after moving the canonical
+                // config to client_prover/config.json.
+                let fallback_path = "client_prover/config.json";
+                if path == "config.json" {
+                    std::fs::read_to_string(fallback_path).map_err(|_| ConfigError::IoError(err))?
+                } else {
+                    return Err(ConfigError::IoError(err));
+                }
+            }
+        };
         let config: Config<F> = serde_json::from_str(&content)?;
 
         if !config.networks.contains_key("localhost") {

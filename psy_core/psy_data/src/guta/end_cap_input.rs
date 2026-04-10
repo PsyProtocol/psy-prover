@@ -12,7 +12,7 @@ use psy_crypto::hash::{
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::api::{PsyContractStateUpdateHistory, SimpleContractHeightCache, SubmitUserEndCapNonProofCoreInput};
+use super::api::{ContractStateUpdate, PsyContractStateUpdateHistory, SimpleContractHeightCache, SubmitUserEndCapNonProofCoreInput};
 use crate::{
     dpn::event::PsyUserEventRecord,
     qblock::cmds::deploy_contract::PsyContractSlotUpdates,
@@ -97,10 +97,19 @@ impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
         self.contract_state_updates
             .iter()
             .filter_map(|x| {
-                if x.user_contract_tree_update_proof.old_value == QHashOut::ZERO && x.contract_state_tree_updates.len() != 0 {
-                    Some((x.user_contract_tree_update_proof.index, x.contract_state_tree_updates[0].siblings.len()))
-                } else {
-                    None
+                if x.user_contract_tree_update_proof.old_value != QHashOut::ZERO || x.contract_state_tree_updates.is_empty() {
+                    return None;
+                }
+                match &x.contract_state_tree_updates[0] {
+                    ContractStateUpdate::Positional { delta_proof } => Some((x.user_contract_tree_update_proof.index, delta_proof.siblings.len())),
+                    ContractStateUpdate::IMT { update } => match update {
+                        crate::qdata::imt_proof::IMTContractStateUpdate::Update { delta_proof, .. } => {
+                            Some((x.user_contract_tree_update_proof.index, delta_proof.siblings.len()))
+                        }
+                        crate::qdata::imt_proof::IMTContractStateUpdate::Insert { predecessor_delta_proof, .. } => {
+                            Some((x.user_contract_tree_update_proof.index, predecessor_delta_proof.siblings.len()))
+                        }
+                    },
                 }
             })
             .collect()
@@ -141,6 +150,7 @@ impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
         Ok(contract_updates)
     }
 }
+
 
 impl<F: RichField> KVQSerializable for SubmitUserEndCapNonProofInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {

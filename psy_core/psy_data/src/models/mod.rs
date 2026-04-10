@@ -1,6 +1,7 @@
 pub mod checkpoint;
 pub mod contract;
 pub mod contract_metadata;
+pub mod imt;
 pub mod kvq_merkle;
 pub mod realm_root_version;
 pub mod realm_status;

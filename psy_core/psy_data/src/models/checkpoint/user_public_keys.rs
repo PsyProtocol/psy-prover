@@ -33,6 +33,7 @@ pub trait PsyUserPublicKeyHelperModelReaderCore<
             KVA::get_fuzzy_range_leq_kv(store, &Hash4x64KeyWithId::new(public_key, max_user_id), user_id_bytes)?
                 .into_iter()
                 .map(|x| x.value)
+                .filter(|record| record.public_key == public_key)
                 .collect(),
         )
     }

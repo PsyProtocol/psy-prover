@@ -1,6 +1,5 @@
 use core::marker::PhantomData;
 
-use itertools::unfold;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     gates::{gate::Gate, util::StridedConstraintConsumer},
@@ -321,7 +320,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32
         let limb_base = 1 << U32AddManyGate::<F, D>::limb_bits();
 
         let split_to_limbs = |mut val, num| {
-            unfold((), move |_| {
+            std::iter::from_fn(move || {
                 let ret = val % limb_base;
                 val /= limb_base;
                 Some(ret)
@@ -369,6 +368,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use itertools::unfold;
     use plonky2::{
         field::{extension::quartic::QuarticExtension, goldilocks_field::GoldilocksField, types::Sample},
         gates::gate_testing::{test_eval_fns, test_low_degree},

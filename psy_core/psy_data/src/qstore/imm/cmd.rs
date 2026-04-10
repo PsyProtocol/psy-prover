@@ -296,3 +296,41 @@ impl QSRMerkleCmd {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QSRIMTCmdGetLeafPreimage {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub contract_id: u32,
+    pub leaf_index: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QSRIMTCmdGetLeafIndexForKey {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub contract_id: u32,
+    pub key: [u64; 4],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QSRIMTCmdFindPredecessor {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub contract_id: u32,
+    pub key: [u64; 4],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QSRIMTCmdGetNextAppendIndex {
+    pub user_id: u64,
+    pub contract_id: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum QSRIMTCmd {
+    GetLeafPreimage(QSRIMTCmdGetLeafPreimage),
+    GetLeafIndexForKey(QSRIMTCmdGetLeafIndexForKey),
+    FindPredecessor(QSRIMTCmdFindPredecessor),
+    GetNextAppendIndex(QSRIMTCmdGetNextAppendIndex),
+}

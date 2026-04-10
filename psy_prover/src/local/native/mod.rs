@@ -19,8 +19,11 @@ use psy_provider::provider::RpcProvider;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tokio::time::timeout;
 
+use serde::{Deserialize, Serialize};
+
 use crate::session::{WalletKeyPair, WalletSession};
 type F = GoldilocksField;
+
 
 #[rpc(server, client, namespace = "psy")]
 pub trait Rpc {
@@ -199,4 +202,5 @@ impl RpcServer for RpcServerImpl {
             .get_deploy_contract_cmd(deployer, circuit_defs)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
+
 }

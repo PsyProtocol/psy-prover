@@ -6,6 +6,7 @@ use plonky2::{
     },
     hash::{hash_types::HashOut, poseidon::PoseidonHash},
     plonk::{
+        circuit_data::VerifierOnlyCircuitData,
         config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
         proof::ProofWithPublicInputs,
     },
@@ -33,7 +34,7 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::PsyHasher,
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
-    qblock::cmds::deploy_contract::{get_code_root_by_code_hashes, QBCDeployContract},
+    qblock::cmds::deploy_contract::{QBCDeployContract, get_code_root_by_code_hashes},
     qdata::{contract::ContractCodeDefinition, user_contract_state::UserContractState},
     qstore::{
         controllers::{
@@ -50,7 +51,6 @@ use psy_data::{
         qtreedata::{PsyComboDataStoreReaderSync, QTreeDataStoreReaderSync},
     },
 };
-
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 pub use psy_provider::session::TxStatus;
 use psy_provider::{
@@ -67,7 +67,7 @@ use psy_vm::{
 };
 use serde::{Deserialize, Serialize};
 
-type UserEndCapUUID = String;
+type TxHash = String;
 
 use crate::{
     signature::{
@@ -147,8 +147,6 @@ pub async fn prove_func<R, CM: UPSCircuitManager<C, D> + ?Sized>(
 where
     R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync,
 {
-    circuit_mgr.register_contract_circuits(contract_id, &contract_code).await?;
-
     let (fn_id, dapen_fc) = circuit_mgr
         .resolve_contract_function_by_method_name(contract_id, &contract_code, fn_name.to_string())
         .await?;
@@ -168,6 +166,73 @@ pub struct WalletSession {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl WalletSession {
+    async fn resolve_registered_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
+        let mut candidate_ids = self.st_provider.get_user_ids_for_public_key(public_key).await?;
+        if candidate_ids.is_empty() {
+            anyhow::bail!("no user_id found for public key {}", public_key);
+        }
+        candidate_ids.sort_unstable();
+        candidate_ids.dedup();
+        let latest_checkpoint_id = self.st_provider.get_latest_block_state().await?.checkpoint_id;
+        tracing::info!(
+            public_key = %public_key,
+            latest_checkpoint_id,
+            candidates = ?candidate_ids,
+            "resolved user id candidates from registration index"
+        );
+
+        let mut valid_candidates = Vec::new();
+        for user_id in candidate_ids {
+            let registration_id = get_registration_id_from_user_id(user_id);
+            match self
+                .st_provider
+                .get_user_registration_tree_merkle_proof(latest_checkpoint_id, registration_id)
+                .await
+            {
+                Ok(mp) if mp.value == public_key => {
+                    valid_candidates.push(user_id);
+                }
+                Ok(mp) => {
+                    tracing::warn!(
+                        public_key = %public_key,
+                        user_id,
+                        registration_id,
+                        registration_leaf_value = %mp.value,
+                        latest_checkpoint_id,
+                        "dropping candidate: registration tree leaf value does not match requested public key"
+                    );
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        public_key = %public_key,
+                        user_id,
+                        registration_id,
+                        latest_checkpoint_id,
+                        "dropping candidate: failed to fetch registration merkle proof: {}",
+                        err
+                    );
+                }
+            }
+        }
+
+        if valid_candidates.is_empty() {
+            anyhow::bail!(
+                "no valid user_id found for public key {} at checkpoint {}",
+                public_key,
+                latest_checkpoint_id
+            );
+        }
+
+        let chosen = valid_candidates[0];
+        tracing::info!(
+            public_key = %public_key,
+            valid_candidates = ?valid_candidates,
+            chosen_user_id = chosen,
+            "selected user id candidate"
+        );
+        Ok(chosen)
+    }
+
     async fn check_user_state(&self, user_id: u64, nonce: F) -> anyhow::Result<()> {
         match self
             .st_provider
@@ -179,6 +244,12 @@ impl WalletSession {
                 tracing::warn!("tx status is confirmed");
                 Err(anyhow::format_err!(
                     "another similar tx is confirmed while building this tx, please rebuild the tx later"
+                ))
+            }
+            TxStatus::Stale => {
+                tracing::warn!("tx status is stale");
+                Err(anyhow::format_err!(
+                    "stale nonce: chain state advanced while building this tx, please rebuild the tx with the latest state"
                 ))
             }
             TxStatus::Pending => {
@@ -255,8 +326,8 @@ impl WalletSession {
         let pk_info = self.wallet.get_or_create_user(private_key, fingerprint).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
 
-        if let Ok(user_ids) = self.st_provider.get_user_ids_for_public_key(public_key).await {
-            tracing::info!("user `{}` already registered with id {}", public_key, user_ids[0]);
+        if let Ok(user_id) = self.resolve_registered_user_id(public_key).await {
+            tracing::info!("user `{}` already registered with id {}", public_key, user_id);
             return Ok(public_key);
         }
 
@@ -274,10 +345,9 @@ impl WalletSession {
         println!("public_key: {}", public_key);
 
         let user_id = self
-            .st_provider
-            .get_user_ids_for_public_key(public_key)
+            .resolve_registered_user_id(public_key)
             .await
-            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?[0];
+            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?;
         self.update_circuit_mgr(public_key).await?;
         tracing::info!("user {} with id {} added", public_key.to_string(), user_id);
         Ok(public_key)
@@ -285,10 +355,9 @@ impl WalletSession {
 
     pub async fn update_circuit_mgr(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
         let user_id = self
-            .st_provider
-            .get_user_ids_for_public_key(public_key)
+            .resolve_registered_user_id(public_key)
             .await
-            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?[0];
+            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?;
         if let Some((_, existing_mgr)) = self.user_session_mgrs.remove(&public_key) {
             let cleaned_mgr = existing_mgr.into_clean_for_user(F::from_canonical_u64(user_id)).await?;
             self.user_session_mgrs.insert(public_key, cleaned_mgr);
@@ -315,7 +384,7 @@ impl WalletSession {
         Ok(())
     }
 
-    pub async fn exec_contract_call(&self, public_key: QHashOut<F>, call_data: ContractCallData) -> anyhow::Result<UserEndCapUUID> {
+    pub async fn exec_contract_call(&self, public_key: QHashOut<F>, call_data: ContractCallData) -> anyhow::Result<TxHash> {
         if call_data.contract_calls.is_empty() {
             anyhow::bail!("No contract calls to execute");
         }
@@ -333,8 +402,68 @@ impl WalletSession {
         tracing::info!("prove contract calls");
         self.prove_contract_call(public_key, call_data.contract_calls).await?;
         tracing::info!("sign and submit on global checkpoint: {}", result.checkpoint_id);
-        let user_end_cap_uuid = self.sign_and_submit(public_key, call_data.software_defined_call).await?;
-        Ok(user_end_cap_uuid)
+        let tx_hash = self.sign_and_submit(public_key, call_data.software_defined_call).await?;
+        Ok(tx_hash)
+    }
+
+    /// Add an external proof leaf into a user's UPS session proof tree.
+    pub async fn add_external_proof(
+        &self,
+        public_key: QHashOut<F>,
+        fingerprint: QHashOut<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+        verifier_data: VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<u64> {
+        let mut user_session_mgr = self
+            .user_session_mgrs
+            .get_mut(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
+
+        Ok(user_session_mgr
+            .add_external_proof(fingerprint, proof, verifier_data)
+            .await)
+    }
+
+    /// Like `add_external_proof` but also returns the Merkle siblings for the injected leaf.
+    /// Returns (leaf_index, siblings) where each sibling is [u64; 4].
+    pub async fn add_external_proof_with_siblings(
+        &self,
+        public_key: QHashOut<F>,
+        fingerprint: QHashOut<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+        verifier_data: VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<(u64, Vec<[u64; 4]>)> {
+        use plonky2::field::types::PrimeField64;
+
+        let mut user_session_mgr = self
+            .user_session_mgrs
+            .get_mut(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
+
+        let leaf_index = user_session_mgr
+            .add_external_proof(fingerprint, proof, verifier_data)
+            .await;
+
+        let leaf_proof = user_session_mgr
+            .proof_tree_state
+            .get_leaf_merkle_proof(leaf_index)
+            .await;
+
+        let siblings: Vec<[u64; 4]> = leaf_proof
+            .siblings
+            .iter()
+            .map(|s| {
+                let e = s.0.elements;
+                [
+                    e[0].to_canonical_u64(),
+                    e[1].to_canonical_u64(),
+                    e[2].to_canonical_u64(),
+                    e[3].to_canonical_u64(),
+                ]
+            })
+            .collect();
+
+        Ok((leaf_index, siblings))
     }
 
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
@@ -440,11 +569,11 @@ impl WalletSession {
         Ok(())
     }
 
-    pub async fn sign(
+    pub async fn sign_inner(
         &self,
         public_key: QHashOut<F>,
         software_defined_call: DPNSoftwareDefinedCallData,
-    ) -> anyhow::Result<(SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F, C, D>)> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let pk_info = self.wallet.get_public_key_info(&public_key).await?;
         let mut user_session_mgr = self
             .user_session_mgrs
@@ -511,7 +640,22 @@ impl WalletSession {
                 circuit_verifier_config,
             )
             .await?;
+       Ok(end_cap_proof)
+    }
 
+    pub async fn sign(
+        &self,
+        public_key: QHashOut<F>,
+        software_defined_call: DPNSoftwareDefinedCallData,
+    ) -> anyhow::Result<(SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F, C, D>)> {
+
+        let end_cap_proof = self.sign_inner(public_key, software_defined_call).await?;
+
+        let mut user_session_mgr = self
+            .user_session_mgrs
+            .get_mut(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
+        
         let user_ec_input = user_session_mgr.get_api_input().await?;
         tracing::info!("get user ec input: {}", serde_json::to_string_pretty(&user_ec_input)?);
 
@@ -522,16 +666,25 @@ impl WalletSession {
         }
 
         let user_id = user_session_mgr.lps.get_current_user_id_64();
+        let nonce = user_session_mgr.lps.get_nonce();
         self.check_user_state(user_id, nonce).await?;
 
         Ok((user_ec_input, end_cap_proof))
+    }
+
+    pub async fn sign_imt(
+        &self,
+        public_key: QHashOut<F>,
+        software_defined_call: DPNSoftwareDefinedCallData,
+    ) -> anyhow::Result<(SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F, C, D>)> {
+        self.sign(public_key, software_defined_call).await
     }
 
     pub async fn sign_and_submit(
         &self,
         public_key: QHashOut<F>,
         software_defined_call: DPNSoftwareDefinedCallData,
-    ) -> anyhow::Result<UserEndCapUUID> {
+    ) -> anyhow::Result<TxHash> {
         let (user_ec_input, end_cap_proof) = self.sign(public_key, software_defined_call).await?;
         let user_id = user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
         let req = QSubmitEndCapRPCRequest {
@@ -539,7 +692,8 @@ impl WalletSession {
             proof: bincode::serialize(&end_cap_proof)?,
         };
 
-        let tx_hash = req.user_ec_input.get_tx_hash()?;
+        // let tx_hash = req.user_ec_input.get_tx_hash()?;
+        let tx_hash = req.user_ec_input.core.state_transition.end_user_leaf_hash;
 
         let _ = self.st_provider.with_user_id_owned(user_id).submit_end_cap_proof::<F>(req).await?;
 

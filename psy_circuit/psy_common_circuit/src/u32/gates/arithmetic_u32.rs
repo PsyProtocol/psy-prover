@@ -1,6 +1,5 @@
 use core::marker::PhantomData;
 
-use itertools::unfold;
 use plonky2::{
     field::{extension::Extendable, packed::PackedField, types::Field},
     gates::{gate::Gate, packed_util::PackedEvaluableBase, util::StridedConstraintConsumer},
@@ -383,7 +382,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32
 
         let num_limbs = U32ArithmeticGate::<F, D>::num_limbs();
         let limb_base = 1 << U32ArithmeticGate::<F, D>::limb_bits();
-        let output_limbs_u64 = unfold((), move |_| {
+        let output_limbs_u64 = std::iter::from_fn(move || {
             let ret = output_u64 % limb_base;
             output_u64 /= limb_base;
             Some(ret)

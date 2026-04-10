@@ -240,6 +240,9 @@ pub enum RequestParams<F: RichField> {
     #[serde(rename = "psy_get_checkpoint_global_state_roots")]
     GetCheckpointGlobalStateRoots(QCheckpointGlobalStateRootsRPCRequest),
 
+    #[serde(rename = "psy_get_checkpoint_state_transition_proof")]
+    GetCheckpointStateTransitionProof(QCheckpointStateTransitionProofRPCRequest),
+
     // QMetaDataStoreReaderSync
     #[serde(rename = "psy_get_user_leaf_data")]
     GetUserLeafData(QUserLeafDataRPCRequest),
@@ -267,6 +270,16 @@ pub enum RequestParams<F: RichField> {
     GetUserEventData(QUserEventDataRPCRequest),
     #[serde(rename = "psy_get_user_event_data_f")]
     GetUserEventDataF(QUserEventDataFRPCRequest<F>),
+
+    /// IMT contract state
+    #[serde(rename = "psy_get_imt_leaf_preimage")]
+    GetIMTLeafPreimage(QIMTLeafPreimageRPCRequest),
+    #[serde(rename = "psy_get_imt_leaf_index_for_key")]
+    GetIMTLeafIndexForKey(QIMTLeafIndexForKeyRPCRequest<F>),
+    #[serde(rename = "psy_find_imt_predecessor")]
+    FindIMTPredecessor(QFindIMTPredecessorRPCRequest<F>),
+    #[serde(rename = "psy_get_imt_next_append_index")]
+    GetIMTNextAppendIndex(QIMTNextAppendIndexRPCRequest),
 
     /// generate proof
     #[serde(rename = "psy_get_circuits_data")]
@@ -529,6 +542,7 @@ pub struct QTokenTransferRPCRequest {
 pub struct QClaimDepositRPCRequest {
     pub user_id: u64,
     pub deposit_id: u64,
+    pub chain_id: u64,
     pub value: u64,
 
     #[ts(as = "String")]
@@ -611,11 +625,11 @@ pub struct QSubmitGutaRPCRequest<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
-pub struct QGetUserIdsRPCRequest<F: RichField> {
-    pub public_key: QHashOut<F>,
-    pub start_user_id: u64,
-    pub count: u64,
-}
+pub struct QGetUserIdsRPCRequest<F: RichField>(
+    pub QHashOut<F>,
+    pub u64,
+    pub u64,
+);
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -1118,6 +1132,13 @@ pub struct QCheckpointGlobalStateRootsRPCRequest {
     pub checkpoint_id: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
+pub struct QCheckpointStateTransitionProofRPCRequest {
+    pub checkpoint_id: u64,
+}
+
 // QMetaDataStoreReaderSync
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
@@ -1207,6 +1228,48 @@ pub struct QUserEventDataFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub user_id: F,
     pub event_index: F,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QIMTLeafPreimageRPCRequest {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub contract_id: u64,
+    pub leaf_index: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QIMTLeafIndexForKeyRPCRequest<F: RichField> {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub contract_id: u64,
+    pub key: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QFindIMTPredecessorRPCRequest<F: RichField> {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub contract_id: u64,
+    pub key: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QIMTNextAppendIndexRPCRequest {
+    pub user_id: u64,
+    pub contract_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QFindIMTPredecessorResponse<F: RichField> {
+    pub leaf_index: u64,
+    pub leaf: psy_data::qdata::imt_contract_state::IMTContractStateLeaf<F>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

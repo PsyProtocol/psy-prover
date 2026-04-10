@@ -3,6 +3,8 @@ pub mod checkpoint_id_key;
 pub mod contract;
 pub mod contract_inclusion;
 pub mod contract_metadata;
+pub mod imt_contract_state;
+pub mod imt_proof;
 pub mod event_key;
 pub mod hash_cache_result;
 pub mod hash_key;

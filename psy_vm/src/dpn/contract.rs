@@ -116,6 +116,41 @@ fn encode_state_cmd(buffer: &mut Vec<u64>, cmd: &DPNStateCmd<u64>) {
         DPNStateCmd::GetContractLeaf(c) => {
             buffer.push(c.contract_id);
         }
+        DPNStateCmd::GetGlobalStateRoots(c) => {
+            buffer.push(c.checkpoint_id);
+        }
+        DPNStateCmd::SetIMTContractStateValue(c) => {
+            buffer.push(c.condition);
+            buffer.push(c.base_offset);
+            buffer.push(c.capacity);
+            buffer.extend(c.key.iter());
+            buffer.extend(c.value.iter());
+        }
+        DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(c) => {
+            buffer.push(c.base_offset);
+            buffer.push(c.capacity);
+            buffer.extend(c.key.iter());
+        }
+        DPNStateCmd::GetSelfUserExternalIMTContractStateValue(c) => {
+            buffer.push(c.contract_id);
+            buffer.push(c.base_offset);
+            buffer.push(c.capacity);
+            buffer.extend(c.key.iter());
+            buffer.push(c.contract_state_tree_height as u64);
+        }
+        DPNStateCmd::GetOtherUserIMTContractStateValue(c) => {
+            buffer.push(c.user_id);
+            buffer.push(c.contract_id);
+            buffer.push(c.base_offset);
+            buffer.push(c.capacity);
+            buffer.extend(c.key.iter());
+            buffer.push(c.contract_state_tree_height as u64);
+        }
+        DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(c) => {
+            buffer.push(c.base_offset);
+            buffer.push(c.capacity);
+            buffer.extend(c.key.iter());
+        }
     }
 }
 

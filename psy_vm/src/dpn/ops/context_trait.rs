@@ -113,26 +113,6 @@ impl<T: ToFelts<SymFeltRef> + Clone, const N: usize> QContextArraySized<T> for [
         self[index as usize] = value;
     }
 }
-impl<T: ToFelts<SymFeltRef> + Copy, const N: usize> QContextArraySized<T> for [T; N] {
-    fn q_sized_size(&self) -> u64 {
-        N as u64
-    }
-
-    fn q_get_direct(&self, index: u64) -> T {
-        self[index as usize]
-    }
-    fn q_get_direct_ref(&self, index: u64) -> &T {
-        &self[index as usize]
-    }
-    fn q_get_direct_mut(&mut self, index: u64) -> &mut T {
-        self.get_mut(index as usize).unwrap()
-    }
-
-    fn q_put_direct(&mut self, index: u64, value: T) {
-        self[index as usize] = value;
-    }
-}
-
 impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
     fn q_size(&self) -> u64 {
         self.q_sized_size()
@@ -368,6 +348,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     // std lib
     fn hash(&mut self, values: &[F]) -> [F; 4];
     fn hash_two_to_one(&mut self, left: &[F; 4], right: &[F; 4]) -> [F; 4];
+    fn keccak256(&mut self, values: &[F]) -> [F; 8];
     fn split_bits(&mut self, value: F, num_bits: u64) -> Vec<F>;
     fn sum_bits(&mut self, bits: &[F]) -> F;
 
@@ -378,6 +359,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_checkpoint_id(&mut self) -> F;
     fn get_last_nonce(&mut self) -> F;
     fn get_user_public_key_hash(&mut self) -> [F; 4];
+    fn get_session_proof_tree_root(&mut self) -> [F; 4];
 
     // Checkpoint stats helper functions
     fn get_checkpoint_stats(&mut self, checkpoint_id: F) -> Vec<F>;
@@ -395,6 +377,14 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_gutas_completed(&mut self, checkpoint_id: F) -> F;
     fn get_deploy_contracts_completed(&mut self, checkpoint_id: F) -> F;
 
+    // Global state roots helper functions
+    fn get_global_state_roots(&mut self, checkpoint_id: F) -> Vec<F>;
+    fn get_checkpoint_user_tree_root(&mut self, checkpoint_id: F) -> [F; 4];
+    fn get_checkpoint_contract_tree_root(&mut self, checkpoint_id: F) -> [F; 4];
+    fn get_checkpoint_deposit_tree_root(&mut self, checkpoint_id: F) -> [F; 4];
+    fn get_checkpoint_withdrawal_tree_root(&mut self, checkpoint_id: F) -> [F; 4];
+    fn get_checkpoint_user_registration_tree_root(&mut self, checkpoint_id: F) -> [F; 4];
+
     // state operations
     fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: F, user_id: F, index: F) -> F;
     fn op_set_state_felt(&mut self, index: F, value: F) -> F;
@@ -409,6 +399,30 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
         }
         ToFelts::from_felts(&result)
     }
+
+    // IMT (Indexed Merkle Tree) state operations
+    fn imt_get_value(&mut self, key: [F; 4], base_offset: F, capacity: F) -> [F; 4];
+    fn imt_get_other_user_value(
+        &mut self,
+        contract_state_tree_height: F,
+        user_id: F,
+        contract_id: F,
+        key: [F; 4],
+        base_offset: F,
+        capacity: F,
+    ) -> [F; 4];
+    fn imt_contains_other_user(
+        &mut self,
+        contract_state_tree_height: F,
+        user_id: F,
+        contract_id: F,
+        key: [F; 4],
+        base_offset: F,
+        capacity: F,
+    ) -> F;
+    fn imt_insert(&mut self, key: [F; 4], value: [F; 4], base_offset: F, capacity: F) -> [F; 4];
+    fn imt_update(&mut self, key: [F; 4], new_value: [F; 4], base_offset: F, capacity: F) -> [F; 4];
+    fn imt_contains(&mut self, key: [F; 4], base_offset: F, capacity: F) -> F;
 
     // event operations
     fn emit_event(&mut self, event_data: Vec<F>);

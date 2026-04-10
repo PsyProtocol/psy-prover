@@ -106,6 +106,7 @@ impl PsyContractFunctionBuilderGadget {
             self.tx_ctx_header.proving_session_start_ctx.checkpoint_id,
             self.tx_ctx_header.proving_session_start_ctx.start_session_user_leaf.nonce,
             self.tx_ctx_header.proving_session_start_ctx.start_session_user_leaf.public_key,
+            self.session_proof_tree_root,
         );
         let state_cmd_len = fn_def.state_command_resolution_indices.len();
         let mut next_state_cmd_id = 0;
@@ -117,20 +118,24 @@ impl PsyContractFunctionBuilderGadget {
         for (i, def) in fn_def.definitions.iter().enumerate() {
             if def.op_type.eq(&DPNOpType::GetStateCommandResultSingle) {
                 let ind = def.inputs[0] as usize;
-                executor.push_external_target(self.cmd_results[ind].result[0]);
+                executor.push_external_target(def.index, self.cmd_results[ind].result[0]);
             } else if def.op_type.eq(&DPNOpType::GetStateCommandResultArray) {
                 let ind = def.inputs[0] as usize;
-                executor.push_external_target_array(self.cmd_results[ind].result.clone());
+                executor.push_external_target_array(def.index, self.cmd_results[ind].result.clone());
             } else if def.op_type.eq(&DPNOpType::GetStateCommandResultHash) {
                 let ind = def.inputs[0] as usize;
-                executor.push_external_hash(HashOutTarget {
+                executor.set_hash_at(
+                    def.index,
+                    HashOutTarget {
                     elements: [
                         self.cmd_results[ind].result[0],
                         self.cmd_results[ind].result[1],
                         self.cmd_results[ind].result[2],
                         self.cmd_results[ind].result[3],
                     ],
-                });
+                    },
+                    "GetStateCommandResultHash",
+                );
             } else {
                 executor.process_var_def(builder, &def);
             }

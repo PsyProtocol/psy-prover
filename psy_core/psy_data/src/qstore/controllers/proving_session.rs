@@ -23,7 +23,7 @@ use psy_crypto::{
 
 use super::{
     session_store::{config::LPS_DEFERRED_TRANSACTION_TREE_ID, tx_tree::TransactionDebtTreeRef},
-    state_tracker::PsyLocalStateTracker,
+    state_tracker::{PsyLocalStateTracker, PsyStateOperation},
 };
 use crate::{
     config::store_config::{PsyHasher, UserContractTreeStore},
@@ -35,7 +35,7 @@ use crate::{
             PsyLocalTransactionRecord,
         },
     },
-    guta::api::PsyContractStateUpdateHistory,
+    guta::api::{ContractStateUpdate, PsyContractStateUpdateHistory},
     models::{
         kvq_merkle::model::{KVQSemiFixedConfigMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore},
         user::contract_state_tree::UserContractStateTreeId,
@@ -44,6 +44,7 @@ use crate::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         contract_inclusion::{PsyContractFunctionInclusionProof, PsyContractInclusionProof},
+        imt_contract_state::IMTContractStateLeaf,
         user::PsyUserLeaf,
     },
     qstore::{
@@ -72,6 +73,7 @@ pub trait PsyReadLocalProvingSessionStore<F: RichField> {
     fn get_current_caller_contract_id(&self) -> F;
     fn get_start_contract_state_roots(&self) -> Vec<(u64, QHashOut<F>)>;
     fn get_total_slots_modified(&self) -> F;
+    fn get_total_imt_keys_modified(&self) -> F;
     fn get_current_method_id(&self) -> F;
     fn get_current_user_id(&self) -> F;
     fn get_current_user_id_64(&self) -> u64;
@@ -131,7 +133,6 @@ pub struct PsyLocalProvingSessionStore<
     >,
 
     local_state_tracker: PsyLocalStateTracker<F>,
-
     start_checkpoint: F,
     write_checkpoint: F,
     start_checkpoint_u64: u64,
@@ -172,7 +173,11 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
     }
 
     fn get_total_slots_modified(&self) -> F {
-        F::from_canonical_u32(self.local_state_tracker.total_slots_modified)
+        F::from_canonical_u32(self.local_state_tracker.total_slots_modified + self.local_state_tracker.get_total_keys_modified())
+    }
+
+    fn get_total_imt_keys_modified(&self) -> F {
+        F::from_canonical_u32(self.local_state_tracker.get_total_keys_modified())
     }
 
     fn get_current_method_id(&self) -> F {
@@ -264,6 +269,73 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
     async fn resolve_get_latest_block_state_mut(&mut self) -> anyhow::Result<PsyBlockState> {
         self.cmd_store.resolve_get_latest_block_state_mut().await
     }
+
+    async fn resolve_contract_state_imt_get_leaf_preimage_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafPreimage,
+    ) -> anyhow::Result<crate::qdata::imt_contract_state::IMTContractStateLeaf<F>> {
+        let contract_id = input.contract_id as u64;
+        if let Some(local_leaf) = self
+            .local_state_tracker
+            .get_imt_leaf_preimage_by_state_slot_index(contract_id, input.leaf_index)
+        {
+            return Ok(local_leaf);
+        }
+        self.cmd_store.resolve_contract_state_imt_get_leaf_preimage_mut(input).await
+    }
+
+    async fn resolve_contract_state_imt_get_leaf_index_for_key_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafIndexForKey,
+    ) -> anyhow::Result<u64> {
+        let key = QHashOut::from_values(input.key[0], input.key[1], input.key[2], input.key[3]);
+        let contract_id = input.contract_id as u64;
+
+        if let Some(state_slot_index) = self
+            .local_state_tracker
+            .get_imt_state_slot_index_for_key(contract_id, &key)
+        {
+            return Ok(state_slot_index);
+        }
+        self.cmd_store.resolve_contract_state_imt_get_leaf_index_for_key_mut(input).await
+    }
+
+    async fn resolve_contract_state_imt_find_predecessor_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdFindPredecessor,
+    ) -> anyhow::Result<(u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)> {
+        use crate::qdata::imt_contract_state::compare_qhashout_keys;
+
+        let key = QHashOut::from_values(input.key[0], input.key[1], input.key[2], input.key[3]);
+        let contract_id = input.contract_id as u64;
+
+        let local_pred = self.local_state_tracker.find_imt_predecessor(contract_id, &key);
+        let remote_pred = self.cmd_store.resolve_contract_state_imt_find_predecessor_mut(input).await.ok();
+
+        // 3. Merge: return the larger one (closest to target key)
+        match (local_pred, remote_pred) {
+            (Some((local_idx, local_leaf)), Some((remote_idx, remote_leaf))) => {
+                if compare_qhashout_keys(&local_leaf.key, &remote_leaf.key) == std::cmp::Ordering::Greater {
+                    Ok((local_idx, local_leaf))
+                } else {
+                    Ok((remote_idx, remote_leaf))
+                }
+            }
+            (Some(local), None) => Ok(local),
+            (None, Some(remote)) => Ok(remote),
+            (None, None) => Err(anyhow::anyhow!("No predecessor found")),
+        }
+    }
+
+    async fn resolve_contract_state_imt_get_next_append_index_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetNextAppendIndex,
+    ) -> anyhow::Result<u64> {
+        let contract_id = input.contract_id as u64;
+        let remote_next = self.cmd_store.resolve_contract_state_imt_get_next_append_index_mut(input).await?;
+        let local_next = self.local_state_tracker.get_imt_next_append_index(contract_id).unwrap_or(0);
+        Ok(remote_next.max(local_next))
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -331,7 +403,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
             events: Vec::new(),
             start_event_index,
             local_state_tracker: PsyLocalStateTracker::new(),
-            deferred_tx_debt_store: TransactionDebtTreeRef::new(start_checkpoint.to_canonical_u64()),
+                        deferred_tx_debt_store: TransactionDebtTreeRef::new(start_checkpoint.to_canonical_u64()),
             transaction_records: Vec::new(),
             start_checkpoint: start_checkpoint,
             write_checkpoint: start_checkpoint + F::ONE,
@@ -382,6 +454,9 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
         let q_recursion_tree_height = self.session_proof_tree_height;
         let mut cmd_store = self.into_cmd_store();
         cmd_store.set_user_id(user_id.to_canonical_u64());
+        // IMT resolution caches are time-sensitive and must not cross session boundaries.
+        // Keep generic caches, but force fresh IMT reads for next session/tx.
+        cmd_store.clear_imt_caches_mut();
 
         Self::new_at_with_cmd_store(cmd_store, start_checkpoint, user_id, nonce, start_event_index, q_recursion_tree_height)
     }
@@ -608,7 +683,7 @@ impl<
         } else {
             self.cmd_store
                 .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
-                    checkpoint_id: self.start_checkpoint_u64 + 1000,
+                    checkpoint_id: self.start_checkpoint_u64,
                     user_id: user.to_canonical_u64(),
                 })
                 .await?
@@ -671,6 +746,65 @@ impl<
         let result = self.set_contract_state_slot_inner(contract, slot, value).await?;
         self.local_state_tracker.notify_update_slot_dmp(contract.to_canonical_u64(), &result);
         Ok(result)
+    }
+    pub async fn set_contract_state_imt_update(
+        &mut self,
+        contract: F,
+        leaf_index: u64,
+        slot: F,
+        key: QHashOut<F>,
+        old_leaf: IMTContractStateLeaf<F>,
+        new_leaf: IMTContractStateLeaf<F>,
+    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        tracing::debug!("Proving session - imt slot: {}, key: {}", slot, key);
+        let new_leaf_hash = new_leaf.qfhash::<H>();
+        let result = self.set_contract_state_slot_inner(contract, slot, new_leaf_hash).await?;
+        self.local_state_tracker.notify_imt_update(
+            contract.to_canonical_u64(),
+            key,
+            leaf_index,
+            slot.to_canonical_u64(),
+            old_leaf,
+            new_leaf,
+        );
+        Ok(result)
+    }
+
+    pub async fn set_contract_state_imt_insert(
+        &mut self,
+        contract: F,
+        predecessor_leaf_index: u64,
+        predecessor_slot: F,
+        predecessor_old_leaf: IMTContractStateLeaf<F>,
+        predecessor_new_leaf: IMTContractStateLeaf<F>,
+        new_leaf_index: u64,
+        new_leaf_slot: F,
+        new_leaf_preimage: IMTContractStateLeaf<F>,
+    ) -> anyhow::Result<(DeltaMerkleProofCore<QHashOut<F>>, DeltaMerkleProofCore<QHashOut<F>>)> {
+        let predecessor_hash = predecessor_new_leaf.qfhash::<H>();
+        let predecessor_dmp = self
+            .set_contract_state_slot_inner(contract, predecessor_slot, predecessor_hash)
+            .await?;
+
+        let new_leaf_hash = new_leaf_preimage.qfhash::<H>();
+        let new_leaf_dmp = self
+            .set_contract_state_slot_inner(contract, new_leaf_slot, new_leaf_hash)
+            .await?;
+
+        self.local_state_tracker.notify_imt_insert(
+            contract.to_canonical_u64(),
+            predecessor_leaf_index,
+            predecessor_slot.to_canonical_u64(),
+            predecessor_old_leaf,
+            predecessor_new_leaf,
+            new_leaf_index,
+            new_leaf_slot.to_canonical_u64(),
+            new_leaf_preimage,
+            predecessor_dmp.old_value,
+            new_leaf_dmp.old_value,
+        );
+
+        Ok((predecessor_dmp, new_leaf_dmp))
     }
     pub async fn get_contract_state_slot(&mut self, contract: F, slot: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         tracing::debug!("Proving session - slot: {}", slot);
@@ -949,47 +1083,265 @@ impl<
     }
 
     pub async fn get_all_state_updates(&mut self) -> anyhow::Result<(Vec<PsyContractStateUpdateHistory<F>>, u32)> {
+        use crate::qdata::imt_contract_state::IMTContractStateLeaf;
+        use crate::qdata::imt_proof::IMTContractStateUpdate;
+
         let total_slots_modified = self.local_state_tracker.total_slots_modified;
-        let tracker_results = self.local_state_tracker.get_results();
+        let total_keys_modified = self.local_state_tracker.get_total_keys_modified();
+        let tracker_results: Vec<_> = self.local_state_tracker.contracts.values().cloned().collect();
 
         for r in tracker_results.iter() {
             let c = F::from_canonical_u64(r.contract_id);
-            for slot in r.slots.iter() {
-                self.set_contract_state_slot_inner(c, F::from_canonical_u64(slot.index), slot.start_value)
+            for (slot_index, versions) in r.slots.iter() {
+                if let Some(start_value) = versions.first().copied() {
+                    self.set_contract_state_slot_inner(c, F::from_canonical_u64(*slot_index), start_value)
+                        .await?;
+                }
+            }
+            self.update_contract_state_root_in_user_contract_tree(c).await?;
+            let resolve_slot_hash = |slot_index: u64, version: u32| -> anyhow::Result<QHashOut<F>> {
+                let versions = r.slots.get(&slot_index).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "missing IMT slot version chain for contract_id={}, slot={}, version={}",
+                        r.contract_id,
+                        slot_index,
+                        version
+                    )
+                })?;
+                versions.get(version as usize).copied().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "invalid IMT slot version for contract_id={}, slot={}, version={}, versions_len={}",
+                        r.contract_id,
+                        slot_index,
+                        version,
+                        versions.len()
+                    )
+                })
+            };
+
+            let mut reset_slots: HashMap<u64, QHashOut<F>> = HashMap::new();
+            for op in r.ops.iter() {
+                match op {
+                    PsyStateOperation::IMTUpdate {
+                        state_slot_index,
+                        from_version,
+                        ..
+                    } => {
+                        let reset_hash = resolve_slot_hash(*state_slot_index, *from_version)?;
+                        reset_slots.entry(*state_slot_index).or_insert(reset_hash);
+                    }
+                    PsyStateOperation::IMTInsert {
+                        predecessor_state_slot_index,
+                        predecessor_from_version,
+                        new_leaf_state_slot_index,
+                        new_leaf_from_version,
+                        ..
+                    } => {
+                        let predecessor_reset_hash =
+                            resolve_slot_hash(*predecessor_state_slot_index, *predecessor_from_version)?;
+                        let new_leaf_reset_hash = resolve_slot_hash(*new_leaf_state_slot_index, *new_leaf_from_version)?;
+                        reset_slots
+                            .entry(*predecessor_state_slot_index)
+                            .or_insert(predecessor_reset_hash);
+                        reset_slots
+                            .entry(*new_leaf_state_slot_index)
+                            .or_insert(new_leaf_reset_hash);
+                    }
+                    PsyStateOperation::PositionalWrite { .. } => {}
+                }
+            }
+            for (slot_index, reset_value) in reset_slots.into_iter() {
+                self.set_contract_state_slot_inner(c, F::from_canonical_u64(slot_index), reset_value)
                     .await?;
             }
             self.update_contract_state_root_in_user_contract_tree(c).await?;
         }
 
         let start_state_roots = self.get_start_contract_state_roots();
-
         for (c, h) in start_state_roots.into_iter() {
             self.set_user_contract_tree_leaf(F::from_canonical_u64(c), h).await?;
         }
 
+        self.state_tree_store = KVQSimpleMemoryBackingStore::new();
+
         let mut update_results = Vec::with_capacity(tracker_results.len());
 
         for r in tracker_results.iter() {
-            let mut contract_state_tree_updates: Vec<DeltaMerkleProofCore<QHashOut<F>>> = Vec::with_capacity(r.slots.len());
-
             let c = F::from_canonical_u64(r.contract_id);
-            for slot in r.slots.iter() {
-                contract_state_tree_updates.push(
-                    self.set_contract_state_slot_inner(c, F::from_canonical_u64(slot.index), slot.end_value)
-                        .await?,
-                );
+            let mut contract_state_tree_updates: Vec<ContractStateUpdate<F>> = Vec::with_capacity(r.ops.len());
+
+            {
+                let resolve_slot_hash = |slot_index: u64, version: u32| -> anyhow::Result<QHashOut<F>> {
+                    let versions = r.slots.get(&slot_index).ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "missing IMT slot version chain for contract_id={}, slot={}, version={}",
+                            r.contract_id,
+                            slot_index,
+                            version
+                        )
+                    })?;
+                    versions.get(version as usize).copied().ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "invalid IMT slot version for contract_id={}, slot={}, version={}, versions_len={}",
+                            r.contract_id,
+                            slot_index,
+                            version,
+                            versions.len()
+                        )
+                    })
+                };
+                let resolve_preimage_from_hash = |hash: QHashOut<F>| -> anyhow::Result<IMTContractStateLeaf<F>> {
+                    if hash == QHashOut::ZERO {
+                        return Ok(IMTContractStateLeaf::default());
+                    }
+                    r.imt_preimages.get(&hash).copied().ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "missing IMT preimage for contract_id={}, hash={}",
+                            r.contract_id,
+                            hash
+                        )
+                    })
+                };
+                for op in r.ops.iter() {
+                    match op {
+                        PsyStateOperation::IMTUpdate {
+                            state_slot_index,
+                            from_version,
+                            to_version,
+                            ..
+                        } => {
+                            let old_hash = resolve_slot_hash(*state_slot_index, *from_version)?;
+                            let new_hash = resolve_slot_hash(*state_slot_index, *to_version)?;
+                            let old_preimage = resolve_preimage_from_hash(old_hash)?;
+                            let new_preimage = resolve_preimage_from_hash(new_hash)?;
+                            let delta_proof = self
+                                .set_contract_state_slot_inner(c, F::from_canonical_u64(*state_slot_index), new_hash)
+                                .await?;
+                            contract_state_tree_updates.push(ContractStateUpdate::IMT {
+                                update: IMTContractStateUpdate::Update {
+                                    old_preimage,
+                                    new_preimage,
+                                    delta_proof,
+                                },
+                            });
+                        }
+                        PsyStateOperation::IMTInsert {
+                            predecessor_state_slot_index,
+                            predecessor_from_version,
+                            predecessor_to_version,
+                            new_leaf_state_slot_index,
+                            new_leaf_to_version,
+                            ..
+                        } => {
+                            let predecessor_old_hash =
+                                resolve_slot_hash(*predecessor_state_slot_index, *predecessor_from_version)?;
+                            let predecessor_new_hash =
+                                resolve_slot_hash(*predecessor_state_slot_index, *predecessor_to_version)?;
+                            let new_leaf_new_hash = resolve_slot_hash(*new_leaf_state_slot_index, *new_leaf_to_version)?;
+                            let predecessor_old_preimage = resolve_preimage_from_hash(predecessor_old_hash)?;
+                            let predecessor_new_preimage = resolve_preimage_from_hash(predecessor_new_hash)?;
+                            let new_leaf_preimage = resolve_preimage_from_hash(new_leaf_new_hash)?;
+
+                            let predecessor_delta_proof = self
+                                .set_contract_state_slot_inner(
+                                    c,
+                                    F::from_canonical_u64(*predecessor_state_slot_index),
+                                    predecessor_new_hash,
+                                )
+                                .await?;
+                            let new_leaf_delta_proof = self
+                                .set_contract_state_slot_inner(c, F::from_canonical_u64(*new_leaf_state_slot_index), new_leaf_new_hash)
+                                .await?;
+                            contract_state_tree_updates.push(ContractStateUpdate::IMT {
+                                update: IMTContractStateUpdate::Insert {
+                                    predecessor_old_preimage,
+                                    predecessor_new_preimage,
+                                    new_leaf_preimage,
+                                    predecessor_delta_proof,
+                                    new_leaf_delta_proof,
+                                },
+                            });
+                        }
+                        PsyStateOperation::PositionalWrite { .. } => {}
+                    }
+                }
             }
+
+            let mut compact_slot_ops: HashMap<u64, (u64, u32)> = HashMap::new();
+            for op in r.ops.iter() {
+                if let PsyStateOperation::PositionalWrite {
+                    slot,
+                    op_seq,
+                    to_version,
+                    ..
+                } = op
+                {
+                    match compact_slot_ops.get_mut(slot) {
+                        Some((last_op_seq, last_to_version)) => {
+                            if *op_seq > *last_op_seq {
+                                *last_op_seq = *op_seq;
+                                *last_to_version = *to_version;
+                            }
+                        }
+                        None => {
+                            compact_slot_ops.insert(*slot, (*op_seq, *to_version));
+                        }
+                    }
+                }
+            }
+            let mut slot_ops: Vec<(u64, u64, u32)> = compact_slot_ops
+                .into_iter()
+                .map(|(slot, (op_seq, to_version))| (slot, op_seq, to_version))
+                .collect();
+            slot_ops.sort_by_key(|(_, op_seq, _)| *op_seq);
+            for (slot, op_seq, to_version) in slot_ops.iter() {
+                let versions = r.slots.get(slot).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "missing slot version chain for contract_id={}, slot={}, op_seq={}",
+                        r.contract_id,
+                        slot,
+                        op_seq
+                    )
+                })?;
+                let to_idx = *to_version as usize;
+                let new_value = *versions.get(to_idx).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "invalid to_version for contract_id={}, slot={}, op_seq={}, to_version={}, versions_len={}",
+                        r.contract_id,
+                        slot,
+                        op_seq,
+                        to_version,
+                        versions.len()
+                    )
+                })?;
+
+                let delta_proof = self
+                    .set_contract_state_slot_inner(c, F::from_canonical_u64(*slot), new_value)
+                    .await?;
+                contract_state_tree_updates.push(ContractStateUpdate::Positional { delta_proof });
+            }
+
             let user_contract_tree_update_proof = self.update_contract_state_root_in_user_contract_tree(c).await?;
             update_results.push(PsyContractStateUpdateHistory {
                 user_contract_tree_update_proof,
                 contract_state_tree_updates,
-            })
+            });
         }
-        Ok((update_results, total_slots_modified))
+
+        Ok((update_results, total_slots_modified + total_keys_modified))
     }
 
-    pub fn get_state_delta_input(&mut self) -> anyhow::Result<UPSCFCStandardStateDeltaInput<F>> {
-        todo!()
+    pub fn get_total_modified_slots_for_fee(&self) -> u32 {
+        self.local_state_tracker.total_slots_modified + self.local_state_tracker.get_total_keys_modified()
+    }
+
+    pub fn has_positional_slot_update(&self, contract_id: u64, slot: u64) -> bool {
+        self.local_state_tracker
+            .contracts
+            .get(&contract_id)
+            .and_then(|tracker| tracker.slots.get(&slot))
+            .map(|versions| !versions.is_empty() && versions.first() != versions.last())
+            .unwrap_or(false)
     }
 
     pub async fn get_checkpoint_state_roots(&mut self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointGlobalStateRoots<F>> {
@@ -1031,8 +1383,12 @@ impl<
 
     pub async fn notify_clear_entire_tree(&mut self, contract_id: u64) -> anyhow::Result<()> {
         if let Some(contract_result) = self.local_state_tracker.get_contract_result(contract_id) {
-            for slot in contract_result.slots.iter() {
-                self.set_contract_state_slot(F::from_canonical_u64(contract_id), F::from_canonical_u64(slot.index), QHashOut::ZERO)
+            for (slot_index, _) in contract_result.slots.iter() {
+                self.set_contract_state_slot(
+                    F::from_canonical_u64(contract_id),
+                    F::from_canonical_u64(*slot_index),
+                    QHashOut::ZERO,
+                )
                     .await?;
             }
         }

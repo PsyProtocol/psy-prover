@@ -122,6 +122,7 @@ impl SymFeltRef {
             && type_id != DPNOpType::GetCheckpointId as u16
             && type_id != DPNOpType::GetNonce as u16
             && type_id != DPNOpType::GetUserPublicKeyHash as u16
+            && type_id != DPNOpType::GetSessionProofTreeRoot as u16
             && type_id != DPNOpType::U32InputTarget as u16
             && type_id != DPNOpType::ConstantU32 as u16
             && type_id != DPNOpType::BoolInputTarget as u16

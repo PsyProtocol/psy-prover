@@ -75,6 +75,7 @@ pub async fn run_prove_proxy_server(args: psy_common::args::ProveProxyArgs) -> a
     let server = Server::builder().set_http_middleware(cors).build(server_addr).await?;
 
     let handle = server.start(prove_proxy.into_rpc());
+    println!("\n[CFLI:PSY_PROVE_PROXY_STARTED][{}]\n", server_addr);
     handle.stopped().await;
     Ok(())
 }

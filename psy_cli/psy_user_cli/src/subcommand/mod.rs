@@ -12,6 +12,8 @@ cfg_if::cfg_if! {
         pub mod register_user;
         pub mod submit_end_cap_proof;
         pub mod claim_amount;
+        pub mod claim_deposit;
+        pub mod withdraw;
         pub mod check_tx;
         pub mod key_utils;
         pub mod get_checkpoint_id_for_unique_pending_id;
@@ -19,6 +21,10 @@ cfg_if::cfg_if! {
         pub mod claim_reward_v2;
         pub mod get_psy_sdc_fingerprint;
         pub mod get_user_endcap_common_data;
+        pub mod note_proof_common;
+        pub mod private_claim;
+        pub mod private_transfer;
+        pub mod shield_address;
     }
 }
 
@@ -102,4 +108,15 @@ pub enum Commands {
     GetPsySdcFingerprint(crate::subcommand::args::GetPsySdcFingerprintArgs),
 
     GetUserEndCapCommonData,
+
+    /// Execute private transfer flow and generate note proof payload.
+    PrivateTransfer(crate::subcommand::args::PrivateTransferArgs),
+    /// Claim a private note from generated proof payload.
+    PrivateClaim(crate::subcommand::args::PrivateClaimArgs),
+    /// Derive note owner hash from receiver pubkey and binding.
+    DeriveNoteOwner(crate::subcommand::args::DeriveNoteOwnerArgs),
+    /// Claim a bridge deposit by providing Merkle proof from the deposit tree.
+    ClaimDeposit(crate::subcommand::args::ClaimDepositArgs),
+    /// Withdraw tokens from L2 to L1 via the bridge.
+    Withdraw(crate::subcommand::args::WithdrawArgs),
 }

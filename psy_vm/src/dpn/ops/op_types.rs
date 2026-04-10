@@ -105,6 +105,8 @@ pub enum DPNOpType {
     Secp256k1Verify = 77,
     HashTwoToOne = 78,
     GetCallerContractId = 79,
+    GetSessionProofTreeRoot = 80,
+    Keccak256 = 81,
 }
 
 impl From<u16> for DPNOpType {
@@ -181,6 +183,8 @@ impl From<u16> for DPNOpType {
             77 => DPNOpType::Secp256k1Verify,
             78 => DPNOpType::HashTwoToOne,
             79 => DPNOpType::GetCallerContractId,
+            80 => DPNOpType::GetSessionProofTreeRoot,
+            81 => DPNOpType::Keccak256,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -326,6 +330,7 @@ impl DPNOpType {
             DPNOpType::GetCheckpointId => DPNBuiltInDataType::Target,
             DPNOpType::GetNonce => DPNBuiltInDataType::Target,
             DPNOpType::GetUserPublicKeyHash => DPNBuiltInDataType::HashOut,
+            DPNOpType::GetSessionProofTreeRoot => DPNBuiltInDataType::HashOut,
             DPNOpType::GetStateQueryResult => DPNBuiltInDataType::HashOut,
             DPNOpType::GetStateQueryResultSingle => DPNBuiltInDataType::Target,
             DPNOpType::GetStateCommandResultHash => DPNBuiltInDataType::HashOut,
@@ -346,6 +351,7 @@ impl DPNOpType {
             DPNOpType::U32Exp => DPNBuiltInDataType::U32Target,
             DPNOpType::Secp256k1Verify => DPNBuiltInDataType::Bool,
             DPNOpType::HashTwoToOne => DPNBuiltInDataType::HashOut,
+            DPNOpType::Keccak256 => DPNBuiltInDataType::U32TargetArray,
         }
     }
     pub fn is_inputless(&self) -> bool {
@@ -358,6 +364,7 @@ impl DPNOpType {
             DPNOpType::GetCheckpointId => true,
             DPNOpType::GetNonce => true,
             DPNOpType::GetUserPublicKeyHash => true,
+            DPNOpType::GetSessionProofTreeRoot => true,
             _ => false,
         }
     }
@@ -373,6 +380,7 @@ impl DPNOpType {
             DPNOpType::GetCheckpointId => false,
             DPNOpType::GetNonce => false,
             DPNOpType::GetUserPublicKeyHash => false,
+            DPNOpType::GetSessionProofTreeRoot => false,
             _ => true,
         }
     }
@@ -456,6 +464,7 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::GetCheckpointId => "GetCheckpointId",
             DPNOpType::GetNonce => "GetNonce",
             DPNOpType::GetUserPublicKeyHash => "GetUserPublicKeyHash",
+            DPNOpType::GetSessionProofTreeRoot => "GetSessionProofTreeRoot",
             DPNOpType::GetStateQueryResult => "GetStateQueryResult",
             DPNOpType::GetStateQueryResultSingle => "GetStateQueryResultSingle",
             DPNOpType::GetStateCommandResultHash => "GetStateCommandResultHash",
@@ -476,6 +485,7 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::U32Exp => "U32Exp",
             DPNOpType::Secp256k1Verify => "Secp256k1Verify",
             DPNOpType::HashTwoToOne => "HashTwoToOne",
+            DPNOpType::Keccak256 => "Keccak256",
         };
         write!(f, "DPNOpType::{}", r)
     }

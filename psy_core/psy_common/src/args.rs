@@ -104,6 +104,9 @@ pub struct WalletSessionArgs {
 
     #[clap(long)]
     pub contract_calls_file: Option<String>,
+
+    #[clap(long, action = clap::ArgAction::Append)]
+    pub external_proof_file: Vec<String>,
 }
 
 impl WalletSessionArgs {

@@ -57,6 +57,7 @@ alloy-signer-local = { workspace = true }
 alloy-primitives = { workspace = true }
 parking_lot = { workspace = true}
 http = { workspace = true }
+base64 = { workspace = true }
 clap = { workspace = true }
 dashmap = { workspace = true }
 quick_cache = { workspace = true }

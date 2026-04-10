@@ -22,6 +22,7 @@ kvq = { workspace = true }
 async-trait = { workspace = true }
 maybe-async = { workspace = true }
 tracing = { workspace = true }
+tiny-keccak = { workspace = true }
 
 psy_config = { workspace = true }
 psy_common = { workspace = true }
@@ -36,3 +37,5 @@ is_sync = [
 
 [dev-dependencies]
 tokio = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-sol-types = { version = "1.3.1" }

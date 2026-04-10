@@ -67,8 +67,10 @@ where
     pub ups_cfc_deferred_tx_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
     pub ups_start_register_user_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
 
-    // contract circuits
-    pub contract_circuits: Cache<u64, Arc<Vec<Arc<DapenContractFunctionCircuit<C, D>>>>>,
+    // contract circuits, lazily cached by (contract_id, fn_id)
+    pub contract_circuits: Cache<(u64, u32), Arc<DapenContractFunctionCircuit<C, D>>>,
+    // method name index, cached by (contract_id, method_name)
+    pub contract_method_ids: Cache<(u64, String), u32>,
 
     pub zk_circuit: PsyBasicZKSignatureCircuit<C, D>,
     pub secp_circuit: Secp256K1SignatureCircuit<C, D>,
@@ -144,7 +146,8 @@ where
             ups_cfc_standard_tx_whitelist_proof,
             ups_cfc_deferred_tx_whitelist_proof,
             ups_start_register_user_whitelist_proof,
-            contract_circuits: Cache::new(200), // Capacity: 200 contracts
+            contract_circuits: Cache::new(200),
+            contract_method_ids: Cache::new(1000),
             zk_circuit: PsyBasicZKSignatureCircuit::new(),
             secp_circuit: Secp256K1SignatureCircuit::new(),
         }
@@ -178,6 +181,52 @@ where
 
         println!("===============================\n\n\n\n");
         self.proof_tree_agg_circuits.circuit_set.print_common_data();
+    }
+}
+
+impl<C: GenericConfig<D> + 'static, const D: usize> PsyUPSStepCircuitManager<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
+{
+    async fn register_contract_method_circuit(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        fn_id: u32,
+    ) -> anyhow::Result<()> {
+        if self.contract_circuits.get(&(contract_id, fn_id)).is_some() {
+            return Ok(());
+        }
+        let func = contract_code
+            .functions
+            .get(fn_id as usize)
+            .ok_or_else(|| anyhow::anyhow!("contract {} method {} is not found", contract_id, fn_id))?;
+        let dapen_fc = cfc_code_definition_to_dapen_fc(func)?;
+        tracing::info!("register contract {} function {}", contract_id, dapen_fc.name);
+        self.contract_method_ids
+            .insert((contract_id, dapen_fc.name.clone()), fn_id);
+        let circuit = Arc::new(DapenContractFunctionCircuit::<C, D>::new(
+            &dapen_fc,
+            contract_code.state_tree_height as usize,
+            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+            false,
+        ));
+        self.contract_circuits.insert((contract_id, fn_id), circuit);
+        Ok(())
+    }
+
+    fn resolve_fn_id_by_method_name(
+        &self,
+        contract_code: &ContractCodeDefinition,
+        method_name: &str,
+    ) -> anyhow::Result<u32> {
+        for (fn_id, func) in contract_code.functions.iter().enumerate() {
+            let dapen_fc = cfc_code_definition_to_dapen_fc(func)?;
+            if dapen_fc.name == method_name {
+                return Ok(fn_id as u32);
+            }
+        }
+        Err(anyhow::format_err!("method {} is not found in contract", method_name))
     }
 }
 
@@ -239,33 +288,16 @@ where
     }
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
-        let mut circuits = Vec::new();
-        if self.contract_circuits.get(&contract_id).is_some() {
-            tracing::info!("contract {} is already registered", contract_id);
-            return Ok(());
+        for (fn_id, _) in contract_code.functions.iter().enumerate() {
+            self.register_contract_method_circuit(contract_id, contract_code, fn_id as u32)
+                .await?;
         }
-        for func in contract_code.functions.iter() {
-            let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
-            tracing::info!("register contract {} function {}", contract_id, dapen_fc.name);
-            circuits.push(Arc::new(DapenContractFunctionCircuit::<C, D>::new(
-                &dapen_fc,
-                contract_code.state_tree_height as usize,
-                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-                false,
-            )));
-        }
-        self.contract_circuits.insert(contract_id, Arc::new(circuits));
         Ok(())
     }
 
     async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
-        if let Some(circuits_arc) = self.contract_circuits.get(&contract_id) {
-            let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
-            for (id, circuit) in circuits.iter().enumerate() {
-                if circuit.fn_def.name == method_name {
-                    return Ok(id as u64);
-                }
-            }
+        if let Some(fn_id) = self.contract_method_ids.get(&(contract_id, method_name.clone())) {
+            return Ok(fn_id as u64);
         }
         Err(anyhow::format_err!("contract {} method {} is not found", contract_id, method_name))
     }
@@ -276,16 +308,17 @@ where
         contract_code: &ContractCodeDefinition,
         method_name: String,
     ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
-        self.register_contract_circuits(contract_id, contract_code).await?;
-        let fn_id = self.get_fn_id(contract_id, method_name.clone()).await?;
-        let fn_circuit_def = cfc_code_definition_to_dapen_fc(contract_code.functions.get(fn_id as usize).ok_or(anyhow::format_err!(
-            "contract {} method {} `{}` is not found",
-            contract_id,
-            fn_id,
-            method_name
-        ))?)?;
+        let fn_id = self.resolve_fn_id_by_method_name(contract_code, &method_name)?;
+        self.register_contract_method_circuit(contract_id, contract_code, fn_id)
+            .await?;
+        self.contract_method_ids.insert((contract_id, method_name), fn_id);
+        let fn_code_def = contract_code
+            .functions
+            .get(fn_id as usize)
+            .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))?;
+        let fn_circuit_def = cfc_code_definition_to_dapen_fc(fn_code_def)?;
 
-        Ok((fn_id, fn_circuit_def))
+        Ok((fn_id as u64, fn_circuit_def))
     }
 
     async fn resolve_contract_function_by_method_id(
@@ -294,29 +327,31 @@ where
         contract_code: &ContractCodeDefinition,
         method_id: u32,
     ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
-        self.register_contract_circuits(contract_id, contract_code).await?;
         let (fn_id, fn_code_def) = contract_code
             .functions
             .iter()
             .enumerate()
             .find_map(|(fn_id, f)| if f.method_id == method_id { Some((fn_id, f)) } else { None })
             .ok_or_else(|| anyhow::anyhow!("method ({}) not found in contract", method_id))?;
-        let fn_circuit_def = cfc_code_definition_to_dapen_fc(fn_code_def)?;
+        let fn_id = fn_id as u32;
+        self.register_contract_method_circuit(contract_id, contract_code, fn_id)
+            .await?;
+        let dapen_fc = cfc_code_definition_to_dapen_fc(fn_code_def)?;
+        self.contract_method_ids
+            .insert((contract_id, dapen_fc.name.clone()), fn_id);
+        let fn_circuit_def = dapen_fc;
 
         Ok((fn_id as u64, fn_circuit_def))
     }
 
     async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        if let Some(circuits_arc) = self.contract_circuits.get(&contract_id) {
-            let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
-            tracing::info!("get contract {} method {} common data", contract_id, fn_id);
-            let circuit = circuits
-                .get(fn_id as usize)
-                .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))?;
-
-            return Ok((circuit.get_fingerprint(), circuit.get_verifier_config_ref().clone()));
-        }
-        Err(anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))
+        let key = (contract_id, fn_id);
+        let circuit = self
+            .contract_circuits
+            .get(&key)
+            .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))?;
+        tracing::info!("get contract {} method {} common data", contract_id, fn_id);
+        Ok((circuit.get_fingerprint(), circuit.get_verifier_config_ref().clone()))
     }
 
     async fn prove_contract_call(
@@ -325,16 +360,12 @@ where
         fn_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        if let Some(fn_circuits_arc) = self.contract_circuits.get(&contract_id) {
-            let fn_circuits = &**fn_circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
-            let fn_circuit = fn_circuits
-                .get(fn_id as usize)
-                .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))?;
-
-            fn_circuit.prove_base(&input)
-        } else {
-            Err(anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))
-        }
+        let key = (contract_id, fn_id);
+        let fn_circuit = self
+            .contract_circuits
+            .get(&key)
+            .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))?;
+        fn_circuit.prove_base(&input)
     }
 
     async fn prove_ups_cfc_standard_tx(

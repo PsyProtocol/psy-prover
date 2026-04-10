@@ -11,14 +11,14 @@ use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ts_rs::TS;
 
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats};
 use crate::{
     dpn::event::PsyUserEventRecord,
     qblock::cmds::deploy_contract::{PsyContractSlotUpdates, PsySlotUpdate},
-    qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
+    qdata::{imt_proof::IMTContractStateUpdate, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
     qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore},
 };
 
@@ -53,7 +53,45 @@ impl<F: RichField> SimpleContractHeightCache<F> {
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct PsyContractStateUpdateHistory<F: RichField> {
     pub user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
-    pub contract_state_tree_updates: Vec<DeltaMerkleProofCore<QHashOut<F>>>,
+    #[serde(
+        rename = "updates",
+        serialize_with = "serialize_contract_state_updates",
+        deserialize_with = "deserialize_contract_state_updates"
+    )]
+    pub contract_state_tree_updates: Vec<ContractStateUpdate<F>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub enum ContractStateUpdate<F: RichField> {
+    Positional {
+        delta_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    },
+    IMT {
+        update: IMTContractStateUpdate<F>,
+    },
+}
+
+fn serialize_contract_state_updates<F, S>(
+    updates: &Vec<ContractStateUpdate<F>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    F: RichField,
+    S: Serializer,
+{
+    updates.serialize(serializer)
+}
+
+fn deserialize_contract_state_updates<'de, F, D>(
+    deserializer: D,
+) -> Result<Vec<ContractStateUpdate<F>>, D::Error>
+where
+    F: RichField,
+    D: Deserializer<'de>,
+{
+    Vec::<ContractStateUpdate<F>>::deserialize(deserializer)
 }
 
 impl<F: RichField> PsyContractStateUpdateHistory<F> {
@@ -61,25 +99,63 @@ impl<F: RichField> PsyContractStateUpdateHistory<F> {
         if self.contract_state_tree_updates.len() == 0 {
             anyhow::bail!("contract_state_tree_updates cannot be empty")
         }
-        if self.contract_state_tree_updates[0].old_root != self.user_contract_tree_update_proof.old_value
+        let first_old_root = match &self.contract_state_tree_updates[0] {
+            ContractStateUpdate::Positional { delta_proof } => delta_proof.old_root,
+            ContractStateUpdate::IMT { update } => update.old_root(),
+        };
+        if first_old_root != self.user_contract_tree_update_proof.old_value
             && (self.user_contract_tree_update_proof.old_value != QHashOut::ZERO
-                || (self.contract_state_tree_updates[0].old_root
-                    != contract_helper.get_contract_zero_hash(self.user_contract_tree_update_proof.index)?))
+                || first_old_root != contract_helper.get_contract_zero_hash(self.user_contract_tree_update_proof.index)?)
         {
-            anyhow::bail!("first CST old root does not match UCT old value");
+            anyhow::bail!("first state update old root does not match UCT old value");
         }
-        if self.contract_state_tree_updates.last().as_ref().unwrap().new_root != self.user_contract_tree_update_proof.new_value {
-            anyhow::bail!("first CST new root does not match UCT new value");
+        let last_new_root = match self.contract_state_tree_updates.last().as_ref().unwrap() {
+            ContractStateUpdate::Positional { delta_proof } => delta_proof.new_root,
+            ContractStateUpdate::IMT { update } => update.new_root(),
+        };
+        if last_new_root != self.user_contract_tree_update_proof.new_value {
+            anyhow::bail!("last state update new root does not match UCT new value");
         }
-
-        let height = self.contract_state_tree_updates[0].siblings.len();
 
         for i in 1..self.contract_state_tree_updates.len() {
-            if self.contract_state_tree_updates[i].siblings.len() != height {
-                anyhow::bail!("invalid tree height in siblings");
+            let prev_new_root = match &self.contract_state_tree_updates[i - 1] {
+                ContractStateUpdate::Positional { delta_proof } => delta_proof.new_root,
+                ContractStateUpdate::IMT { update } => update.new_root(),
+            };
+            let curr_old_root = match &self.contract_state_tree_updates[i] {
+                ContractStateUpdate::Positional { delta_proof } => delta_proof.old_root,
+                ContractStateUpdate::IMT { update } => update.old_root(),
+            };
+            if curr_old_root != prev_new_root {
+                anyhow::bail!("invalid state update transition proof: current old_root != last new_root");
             }
-            if self.contract_state_tree_updates[i].old_root != self.contract_state_tree_updates[i - 1].new_root {
-                anyhow::bail!("invalid cst transition proof: current old_root != last new_root");
+        }
+
+        let expected_height = contract_helper.get_contract_height(self.user_contract_tree_update_proof.index)? as usize;
+        for update in self.contract_state_tree_updates.iter() {
+            match update {
+                ContractStateUpdate::Positional { delta_proof } => {
+                    if delta_proof.siblings.len() != expected_height {
+                        anyhow::bail!("positional proof height mismatch");
+                    }
+                }
+                ContractStateUpdate::IMT { update } => match update {
+                    IMTContractStateUpdate::Update { delta_proof, .. } => {
+                        if delta_proof.siblings.len() != expected_height {
+                            anyhow::bail!("imt update proof height mismatch");
+                        }
+                    }
+                    IMTContractStateUpdate::Insert {
+                        predecessor_delta_proof,
+                        new_leaf_delta_proof,
+                        ..
+                    } => {
+                        if predecessor_delta_proof.siblings.len() != expected_height || new_leaf_delta_proof.siblings.len() != expected_height
+                        {
+                            anyhow::bail!("imt insert proof height mismatch");
+                        }
+                    }
+                },
             }
         }
 
@@ -91,7 +167,24 @@ impl<F: RichField> PsyContractStateUpdateHistory<F> {
         let contract_id = self.user_contract_tree_update_proof.index as u32;
 
         for p in self.contract_state_tree_updates.iter() {
-            injestor.verify_injest_delta_merkle_proof::<H>(contract_id, p)?;
+            match p {
+                ContractStateUpdate::Positional { delta_proof } => {
+                    injestor.verify_injest_delta_merkle_proof::<H>(contract_id, delta_proof)?;
+                }
+                ContractStateUpdate::IMT { update } => match update {
+                    IMTContractStateUpdate::Update { delta_proof, .. } => {
+                        injestor.verify_injest_delta_merkle_proof::<H>(contract_id, delta_proof)?;
+                    }
+                    IMTContractStateUpdate::Insert {
+                        predecessor_delta_proof,
+                        new_leaf_delta_proof,
+                        ..
+                    } => {
+                        injestor.verify_injest_delta_merkle_proof::<H>(contract_id, predecessor_delta_proof)?;
+                        injestor.verify_injest_delta_merkle_proof::<H>(contract_id, new_leaf_delta_proof)?;
+                    }
+                },
+            }
         }
 
         Ok(())
@@ -101,7 +194,8 @@ impl<F: RichField> PsyContractStateUpdateHistory<F> {
         let slot_updates = self
             .contract_state_tree_updates
             .iter()
-            .flat_map(|update| {
+            .flat_map(|update| match update {
+                ContractStateUpdate::Positional { delta_proof: update } => {
                 let old_elements = &update.old_value.0.elements;
                 let new_elements = &update.new_value.0.elements;
                 old_elements
@@ -114,6 +208,9 @@ impl<F: RichField> PsyContractStateUpdateHistory<F> {
                         old_value: *old,
                         new_value: *new,
                     })
+                    .collect::<Vec<_>>()
+                }
+                ContractStateUpdate::IMT { .. } => Vec::new(),
             })
             .collect::<Vec<_>>();
         let contract_id = self.user_contract_tree_update_proof.index as u32;

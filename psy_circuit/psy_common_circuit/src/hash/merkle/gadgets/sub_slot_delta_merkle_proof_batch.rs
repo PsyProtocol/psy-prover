@@ -60,11 +60,12 @@ impl SubSlotStartGadget {
         builder: &mut CircuitBuilder<F, D>,
         dmps: &[DeltaMerkleProofGadget],
         targets: &[Target],
+        condition: Option<BoolTarget>,
     ) {
-        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_0, dmps, targets, 0);
-        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_1, dmps, targets, 1);
-        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_2, dmps, targets, 2);
-        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_3, dmps, targets, 3);
+        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_0, dmps, targets, 0, condition);
+        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_1, dmps, targets, 1, condition);
+        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_2, dmps, targets, 2, condition);
+        self.enforce_targets_from_dmps_with_offset::<H, F, D>(builder, self.is_sub_slot_index_mod_4_eq_3, dmps, targets, 3, condition);
     }
     fn enforce_targets_from_dmps_with_offset<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -73,11 +74,20 @@ impl SubSlotStartGadget {
         dmps: &[DeltaMerkleProofGadget],
         targets: &[Target],
         offset: usize,
+        write_condition: Option<BoolTarget>,
     ) {
         for (i, t) in targets.iter().enumerate() {
             let dmp_index = (i + offset) / 4;
             let dmp_sub_index = (i + offset) % 4;
-            builder.connect_if_true(condition, *t, dmps[dmp_index].new_value.elements[dmp_sub_index]);
+            match write_condition {
+                Some(write_condition) => {
+                    let enabled = builder.and(condition, write_condition);
+                    builder.connect_if_true(enabled, *t, dmps[dmp_index].new_value.elements[dmp_sub_index]);
+                }
+                None => {
+                    builder.connect_if_true(condition, *t, dmps[dmp_index].new_value.elements[dmp_sub_index]);
+                }
+            }
         }
     }
     fn enforce_final_mask<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -205,6 +215,7 @@ impl SubSlotDeltaMerkleProofBatchGadget {
         sub_slot_index: Target,
         values: Vec<Target>,
         force_four_align: bool,
+        write_condition: Option<BoolTarget>,
     ) -> Self {
         let sub_slot_length = values.len();
 
@@ -264,10 +275,13 @@ impl SubSlotDeltaMerkleProofBatchGadget {
                 for (i, t) in values.iter().enumerate() {
                     let dmp_index = i / 4;
                     let dmp_sub_index = i % 4;
-                    builder.connect(*t, dmps[dmp_index].new_value.elements[dmp_sub_index]);
+                    match write_condition {
+                        Some(condition) => builder.connect_if_true(condition, *t, dmps[dmp_index].new_value.elements[dmp_sub_index]),
+                        None => builder.connect(*t, dmps[dmp_index].new_value.elements[dmp_sub_index]),
+                    }
                 }
             } else {
-                first_gadget.enforce_targets_from_dmps::<H, F, D>(builder, &dmps, &values);
+                first_gadget.enforce_targets_from_dmps::<H, F, D>(builder, &dmps, &values, write_condition);
             }
 
             Self {
@@ -340,10 +354,13 @@ impl SubSlotDeltaMerkleProofBatchGadget {
                 for (i, t) in values.iter().enumerate() {
                     let dmp_index = i / 4;
                     let dmp_sub_index = i % 4;
-                    builder.connect(*t, dmps[dmp_index].new_value.elements[dmp_sub_index]);
+                    match write_condition {
+                        Some(condition) => builder.connect_if_true(condition, *t, dmps[dmp_index].new_value.elements[dmp_sub_index]),
+                        None => builder.connect(*t, dmps[dmp_index].new_value.elements[dmp_sub_index]),
+                    }
                 }
             } else {
-                first_gadget.enforce_targets_from_dmps::<H, F, D>(builder, &dmps, &values);
+                first_gadget.enforce_targets_from_dmps::<H, F, D>(builder, &dmps, &values, write_condition);
             }
 
             Self {

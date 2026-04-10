@@ -62,13 +62,13 @@ use crate::{
         QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
         QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
         QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSingleLeafRpcRequestV2,
-        QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
-        QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
+        QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
 };
 
-type UserEndCapUUID = String;
+type TxHash = String;
 
 #[derive(Debug, Clone)]
 pub struct RpcProvider {
@@ -131,33 +131,6 @@ impl RpcProvider {
     }
 }
 
-// #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
-// #[macro_export]
-// macro_rules! psy_rpc_call {
-//     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
-//         let response = $instance
-//             .client
-//             .post($rpc_url)
-//             .json(&RpcRequest {
-//                 jsonrpc: Version::V2,
-//                 request: $rpc_params,
-//                 id: Id::Number(1),
-//             })
-//             .send()?
-//             .json::<RpcResponse<String>>()?;
-
-//         match response.result {
-//             ResponseResult::Success(s) => {
-//                 tracing::info!("{:?}", s);
-//                 Ok(())
-//             }
-//             ResponseResult::Error(e) => Err(anyhow::format_err!("psy rpc call
-// failed `{:?}`", e)),         }
-//     }};
-// }
-
-// #[cfg(not(target_arch = "wasm32"))]
-#[macro_export]
 macro_rules! psy_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         async move {
@@ -180,86 +153,20 @@ macro_rules! psy_rpc_call {
     }};
 }
 
-// #[cfg(target_arch = "wasm32")]
-// #[macro_export]
-// macro_rules! psy_rpc_call {
-//     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
-//         use std::sync::mpsc;
-//         use std::sync::mpsc::{Sender, Receiver};
-//         use wasm_bindgen_futures::spawn_local;
-//         use anyhow::Result;
-
-//         let (tx, rx) = mpsc::channel::<Result<()>>();
-
-//         let client = $instance.client.clone();
-//         let rpc_url = $rpc_url.to_string();
-//         let rpc_params = $rpc_params;
-
-//         spawn_local(async move {
-//             let result: Result<()> = {
-//                 tracing::info!("psy rpc call (wasm): {}", rpc_url);
-//                 let response = client
-//                     .post(&rpc_url)
-//                     .timeout(std::time::Duration::from_secs(360))
-//                     .json(&RpcRequest {
-//                         jsonrpc: Version::V2,
-//                         request: rpc_params,
-//                         id: Id::Number(1),
-//                     })
-//                     .send()
-//                     .await
-//                     .map_err(|e| anyhow::anyhow!("psy rpc call failed: {}",
-// e));
-
-//                 match response {
-//                     Ok(response) => {
-//                         match response.json::<RpcResponse<String>>().await {
-//                             Ok(json_response) => Ok(()),
-//                             Err(e) => Err(anyhow::anyhow!("parse reponse
-// failed: {}", e)),                         }
-//                     }
-//                     Err(e) => Err(anyhow::anyhow!("psy rpc call failed: {}",
-// e)),                 }
-//             };
-
-//             let _ = tx.send(result);
-//         });
-
-//         rx.recv().map_err(|e| anyhow::anyhow!("channel reception failed: {}",
-// e))?     }};
-// }
-
-// #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
-// #[macro_export]
-// macro_rules! psy_rpc_call_back {
-//     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
-//         tracing::info!("psy rpc call: {}", $rpc_url);
-//         let request = RpcRequest {
-//             jsonrpc: Version::V2,
-//             request: $rpc_params,
-//             id: Id::Number(1),
-//         };
-//         $instance
-//             .client
-//             .post($rpc_url)
-//             .timeout(std::time::Duration::from_millis(1000))
-//             .json(&request)
-//             .send()?
-//             .json::<RpcResponse<$ret_ty>>()?
-//     }};
-// }
-
-// #[cfg(not(target_arch = "wasm32"))]
-#[macro_export]
 macro_rules! psy_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
         async move {
             let url_str = $rpc_url;
             tracing::info!("psy rpc call: {}", url_str);
-            let result = $instance
+            #[cfg(not(target_arch = "wasm32"))]
+            let request_builder = $instance
                 .client
                 .post(url_str.clone())
-                .timeout(std::time::Duration::from_secs(360))
+                .timeout(std::time::Duration::from_secs(360));
+            #[cfg(target_arch = "wasm32")]
+            let request_builder = $instance.client.post(url_str.clone());
+
+            let result = request_builder
                 .json(&RpcRequest {
                     jsonrpc: Version::V2,
                     request: $rpc_params,
@@ -317,59 +224,6 @@ macro_rules! psy_rpc_call_back {
     }};
 }
 
-// #[cfg(target_arch = "wasm32")]
-// #[macro_export]
-// macro_rules! psy_rpc_call_back {
-//     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
-//         use std::sync::mpsc;
-//         use std::sync::mpsc::{Sender, Receiver};
-//         use wasm_bindgen_futures::spawn_local;
-//         use anyhow::Result;
-
-//         let (tx, rx) = mpsc::channel::<Result<RpcResponse<$ret_ty>>>();
-
-//         let client = $instance.client.clone();
-//         let rpc_url = $rpc_url.to_string();
-//         let rpc_params = $rpc_params;
-
-//         spawn_local(async move {
-//             let result: Result<RpcResponse<$ret_ty>> = {
-//                 tracing::info!("psy rpc call (wasm): {}", rpc_url);
-//                 let response = client
-//                     .post(&rpc_url)
-//                     .timeout(std::time::Duration::from_secs(360))
-//                     .json(&RpcRequest {
-//                         jsonrpc: Version::V2,
-//                         request: rpc_params,
-//                         id: Id::Number(1),
-//                     })
-//                     .send()
-//                     .await
-//                     .map_err(|e| anyhow::anyhow!("psy rpc call failed: {}",
-// e));
-
-//                 match response {
-//                     Ok(response) => {
-//                         match response.json::<RpcResponse<$ret_ty>>().await {
-//                             Ok(json_response) => Ok(json_response),
-//                             Err(e) => Err(anyhow::anyhow!("parse reponse
-// failed: {}", e)),                         }
-//                     }
-//                     Err(e) => Err(anyhow::anyhow!("psy rpc call failed: {}",
-// e)),                 }
-//             };
-
-//             let _ = tx.send(result);
-//         });
-
-//         let rpc_result = rx.recv()
-//             .map_err(|e| anyhow::anyhow!("Channel receive failed: {}", e))?;
-
-//         rpc_result
-//             .map_err(|e| anyhow::anyhow!("psy rpc call failed: {}", e))?
-//     }};
-// }
-
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait QUserRpcProvider {
@@ -383,8 +237,9 @@ pub trait QUserRpcProvider {
 
     async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<String>;
 
-    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<UserEndCapUUID>;
+    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<TxHash>;
     async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>, Vec<u64>)>;
+
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -415,8 +270,16 @@ impl QUserRpcProvider for RpcProvider {
         unimplemented!()
     }
 
-    async fn claim_deposit<F: RichField>(&self, _req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
-        unimplemented!()
+    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
+        let url = self.get_coordinator_url()?;
+        let response = psy_rpc_call_back!(self, url, RequestParams::<F>::ClaimDeposit(req), String);
+        match response.result {
+            ResponseResult::Success(_) => Ok(()),
+            ResponseResult::Error(e) => {
+                tracing::error!("claim_deposit RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("claim_deposit rpc call failed `{:?}`", e))
+            }
+        }
     }
 
     async fn token_transfer<F: RichField>(&self, _req: QTokenTransferRPCRequest) -> anyhow::Result<()> {
@@ -438,13 +301,13 @@ impl QUserRpcProvider for RpcProvider {
         }
     }
 
-    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<UserEndCapUUID> {
+    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<TxHash> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req), UserEndCapUUID);
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req), TxHash);
         match response.result {
-            ResponseResult::Success(end_cap_uuid) => {
-                tracing::debug!("submitted end cap {}", end_cap_uuid.to_string());
-                Ok(end_cap_uuid)
+            ResponseResult::Success(tx_hash) => {
+                tracing::debug!("submitted end cap {}", tx_hash.to_string());
+                Ok(tx_hash)
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
@@ -473,11 +336,7 @@ impl RpcProvider {
         let response = psy_rpc_call_back!(
             self,
             url,
-            RequestParams::<F>::GetUserIds(QGetUserIdsRPCRequest {
-                public_key,
-                start_user_id: 0,
-                count: 1,
-            }),
+            RequestParams::<F>::GetUserIds(QGetUserIdsRPCRequest(public_key, 0, 64)),
             Vec<u64>
         );
         match response.result {
@@ -490,21 +349,6 @@ impl RpcProvider {
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
-    }
-
-    pub async fn with_user_id<T, F, Fut>(&mut self, user_id: u64, f: F) -> T
-    where
-        F: FnOnce(&mut Self) -> Fut,
-        Fut: std::future::Future<Output = T>,
-    {
-        let original_user_id = self.current_user_id;
-        self.current_user_id = user_id;
-
-        let result = f(self).await;
-
-        self.current_user_id = original_user_id;
-
-        result
     }
 
     pub fn with_user_id_owned(&self, user_id: u64) -> Self {
@@ -533,6 +377,37 @@ impl RpcProvider {
             ResponseResult::Success((success_user_ids, error_user_ids)) => Ok((success_user_ids, error_user_ids)),
             ResponseResult::Error(e) => Err(anyhow::format_err!("submit_end_cap_proofs rpc call failed `{:?}`", e)),
         }
+    }
+}
+
+// Async version of with_user_id
+#[maybe_async::async_impl]
+impl RpcProvider {
+    pub async fn with_user_id<T, F, Fut>(&mut self, user_id: u64, f: F) -> T
+    where
+        F: FnOnce(&mut Self) -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let original_user_id = self.current_user_id;
+        self.current_user_id = user_id;
+        let result = f(self).await;
+        self.current_user_id = original_user_id;
+        result
+    }
+}
+
+// Sync version of with_user_id
+#[maybe_async::sync_impl]
+impl RpcProvider {
+    pub fn with_user_id<T, F>(&mut self, user_id: u64, f: F) -> T
+    where
+        F: FnOnce(&mut Self) -> T,
+    {
+        let original_user_id = self.current_user_id;
+        self.current_user_id = user_id;
+        let result = f(self);
+        self.current_user_id = original_user_id;
+        result
     }
 }
 
@@ -699,6 +574,60 @@ impl RpcProvider {
         Ok(user_total_sent - amount_claimed)
     }
 
+    /// Read the withdrawal tree root from contract #3 storage.
+    ///
+    /// Storage layout of `PsyWithdrawalTreeContract` (packed, 4 felts per slot):
+    ///   slot 0: `[next_index, root[0], root[1], root[2]]`
+    ///   slot 1: `[root[3], root[4], root[5], root[6]]`
+    ///   slot 2: `[root[7], ...]`
+    pub async fn get_proposed_withdrawal_tree_root(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> anyhow::Result<String> {
+        const WITHDRAWAL_TREE_CONTRACT_ID: u32 = 3;
+        const CONTRACT_STATE_TREE_HEIGHT: u8 = 32;
+
+        let slot0 = self
+            .get_user_contract_state_tree_leaf_hash(
+                checkpoint_id,
+                user_id,
+                WITHDRAWAL_TREE_CONTRACT_ID,
+                CONTRACT_STATE_TREE_HEIGHT,
+                0,
+            )
+            .await?;
+        let slot1 = self
+            .get_user_contract_state_tree_leaf_hash(
+                checkpoint_id,
+                user_id,
+                WITHDRAWAL_TREE_CONTRACT_ID,
+                CONTRACT_STATE_TREE_HEIGHT,
+                1,
+            )
+            .await?;
+        let slot2 = self
+            .get_user_contract_state_tree_leaf_hash(
+                checkpoint_id,
+                user_id,
+                WITHDRAWAL_TREE_CONTRACT_ID,
+                CONTRACT_STATE_TREE_HEIGHT,
+                2,
+            )
+            .await?;
+
+        let s0 = slot0.0.elements;
+        let s1 = slot1.0.elements;
+        let s2 = slot2.0.elements;
+        let root_felts = [s0[1], s0[2], s0[3], s1[0], s1[1], s1[2], s1[3], s2[0]];
+        let mut out = [0u8; 32];
+        for (i, f) in root_felts.iter().enumerate() {
+            let v = f.to_canonical_u64() as u32;
+            out[i * 4..(i + 1) * 4].copy_from_slice(&v.to_be_bytes());
+        }
+        Ok(format!("0x{}", hex::encode(out)))
+    }
+
     pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<GoldilocksField>) -> anyhow::Result<bool> {
         let user_leaf_data = self.get_user_leaf_data(checkpoint_id, user_id).await?;
         Ok(user_leaf_data.qfhash::<PsyHasher>() == tx_hash)
@@ -714,8 +643,13 @@ impl RpcProvider {
         tracing::debug!("get user {} tx status at nonce {}, expected_nonce {}", user_id, nonce, expected_nonce);
 
         if nonce != expected_nonce {
-            tracing::warn!("nonce {} != expected_nonce {}", nonce, expected_nonce);
-            Ok(TxStatus::Confirmed)
+            tracing::warn!(
+                "nonce {} != expected_nonce {} for user {}, tx state is stale",
+                nonce,
+                expected_nonce,
+                user_id
+            );
+            Ok(TxStatus::Stale)
         } else {
             Ok(TxStatus::Submittable)
         }
@@ -911,8 +845,8 @@ pub struct LocalCommonCircuitsData<F: RichField> {
     pub circuit_inclusion_proofs: SimpleQTreeRecursionManagerInclusionProofs<F>,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+// Async version of new_with_config
+#[maybe_async::async_impl]
 impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
@@ -940,6 +874,49 @@ where
             ResponseResult::Error(e) => return Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         };
 
+        Ok(Self {
+            client: Arc::new(client),
+            common_circuits_data,
+            zk_sign_inner_circuit: PsyBasicZKSignatureInnerCircuit::new(),
+            proof_proxy_url,
+            _marker: PhantomData,
+        })
+    }
+}
+
+// Sync version of new_with_config
+#[maybe_async::sync_impl]
+impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcProvider<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    pub fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
+        let blocking_client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(360))
+            .build()
+            .map_err(|e| anyhow::format_err!("Failed to create blocking client: {}", e))?;
+
+        let response = blocking_client
+            .post(&proof_proxy_url)
+            .json(&RpcRequest {
+                jsonrpc: Version::V2,
+                request: RequestParams::<C::F>::GetCircuitsData(),
+                id: Id::Number(1),
+            })
+            .send()
+            .map_err(|e| anyhow::format_err!("Failed to send request: {}", e))?
+            .json::<RpcResponse<String>>()
+            .map_err(|e| anyhow::format_err!("Failed to parse JSON response: {}", e))?;
+
+        let common_circuits_data = match response.result {
+            ResponseResult::Success(common_circuits_data) => {
+                tracing::info!("get common_circuits_data");
+                serde_json::from_str(&common_circuits_data)?
+            }
+            ResponseResult::Error(e) => return Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        };
+
+        let client = Client::new();
         Ok(Self {
             client: Arc::new(client),
             common_circuits_data,

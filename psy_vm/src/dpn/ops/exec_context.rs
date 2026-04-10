@@ -1,13 +1,13 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::traits::to_qfelts::QFeltSized;
-use psy_data::qdata::checkpoint::PsyCheckpointLeafStats;
+use psy_data::qdata::checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeafStats};
 
 use super::{
     context_trait::{DPNContext, ToFelts},
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdClearEntireTree, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetContractLeaf,
+            DPNStateCmd, DPNStateCmdClearEntireTree, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetContractLeaf, DPNStateCmdGetGlobalStateRoots,
             DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange,
             DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
             DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred,
@@ -782,6 +782,16 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.op_target_at_array::<4>(parent)
     }
 
+    fn keccak256(&mut self, values: &[SymFeltRef]) -> [SymFeltRef; 8] {
+        let op = SymFeltRefValue {
+            op_type: DPNOpType::Keccak256,
+            const_param: 0,
+            inputs: values.to_vec(),
+        };
+        let parent = self.store.insert(op);
+        self.op_target_at_array::<8>(parent)
+    }
+
     fn split_bits(&mut self, value: SymFeltRef, num_bits: u64) -> Vec<SymFeltRef> {
         let op = SymFeltRefValue {
             op_type: DPNOpType::SplitBits,
@@ -840,6 +850,10 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn get_user_public_key_hash(&mut self) -> [SymFeltRef; 4] {
         self.op_target_at_array(SymFeltRef::new_valueless(DPNOpType::GetUserPublicKeyHash))
+    }
+
+    fn get_session_proof_tree_root(&mut self) -> [SymFeltRef; 4] {
+        self.op_target_at_array(SymFeltRef::new_valueless(DPNOpType::GetSessionProofTreeRoot))
     }
 
     fn get_checkpoint_stats(&mut self, checkpoint_id: SymFeltRef) -> Vec<SymFeltRef> {
@@ -906,6 +920,42 @@ impl DPNContext<SymFeltRef> for QExecContext {
     fn get_gutas_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[7].clone()
+    }
+
+    fn get_global_state_roots(&mut self, checkpoint_id: SymFeltRef) -> Vec<SymFeltRef> {
+        let cmd = DPNStateCmd::GetGlobalStateRoots(DPNStateCmdGetGlobalStateRoots { checkpoint_id });
+        let b = self.resolve_state_cmd_base(cmd);
+        let mut result = Vec::new();
+        let roots_size = PsyCheckpointGlobalStateRoots::<GoldilocksField>::q_felt_size();
+        for i in 0..roots_size {
+            result.push(self.op_target_at(b, i as u64));
+        }
+        result
+    }
+
+    fn get_checkpoint_contract_tree_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let roots = self.get_global_state_roots(checkpoint_id);
+        [roots[0].clone(), roots[1].clone(), roots[2].clone(), roots[3].clone()]
+    }
+
+    fn get_checkpoint_deposit_tree_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let roots = self.get_global_state_roots(checkpoint_id);
+        [roots[4].clone(), roots[5].clone(), roots[6].clone(), roots[7].clone()]
+    }
+
+    fn get_checkpoint_user_tree_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let roots = self.get_global_state_roots(checkpoint_id);
+        [roots[8].clone(), roots[9].clone(), roots[10].clone(), roots[11].clone()]
+    }
+
+    fn get_checkpoint_withdrawal_tree_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let roots = self.get_global_state_roots(checkpoint_id);
+        [roots[12].clone(), roots[13].clone(), roots[14].clone(), roots[15].clone()]
+    }
+
+    fn get_checkpoint_user_registration_tree_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let roots = self.get_global_state_roots(checkpoint_id);
+        [roots[16].clone(), roots[17].clone(), roots[18].clone(), roots[19].clone()]
     }
 
     fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef, index: SymFeltRef) -> SymFeltRef {
@@ -1165,6 +1215,107 @@ impl DPNContext<SymFeltRef> for QExecContext {
             values.to_vec(),
         );
     }
+    // ─── IMT (Indexed Merkle Tree) state commands ─────────────────────────
+
+    /// Get a value from the IMT by 256-bit key (self user, current contract).
+    /// Returns the 4-element hash value.
+    fn imt_get_value(&mut self, key: [SymFeltRef; 4], base_offset: SymFeltRef, capacity: SymFeltRef) -> [SymFeltRef; 4] {
+        let b = self.resolve_state_cmd_base(DPNStateCmd::get_self_user_current_imt_contract_state_value(base_offset, capacity, key));
+        [
+            self.op_target_at(b, 0),
+            self.op_target_at(b, 1),
+            self.op_target_at(b, 2),
+            self.op_target_at(b, 3),
+        ]
+    }
+
+    fn imt_get_other_user_value(
+        &mut self,
+        contract_state_tree_height: SymFeltRef,
+        user_id: SymFeltRef,
+        contract_id: SymFeltRef,
+        key: [SymFeltRef; 4],
+        base_offset: SymFeltRef,
+        capacity: SymFeltRef,
+    ) -> [SymFeltRef; 4] {
+        let contract_state_tree_height_value = if contract_id.get_op_type() == DPNOpType::GetContractId {
+            self.contract_state_tree_height as u8
+        } else {
+            assert_eq!(
+                contract_state_tree_height.get_op_type(),
+                DPNOpType::Constant,
+                "contract_state_tree_height must be a constant"
+            );
+            contract_state_tree_height.get_constant_value() as u8
+        };
+        let b = self.resolve_state_cmd_base(DPNStateCmd::get_other_user_imt_contract_state_value(
+            user_id,
+            contract_id,
+            contract_state_tree_height_value,
+            base_offset,
+            capacity,
+            key,
+        ));
+        [
+            self.op_target_at(b, 0),
+            self.op_target_at(b, 1),
+            self.op_target_at(b, 2),
+            self.op_target_at(b, 3),
+        ]
+    }
+
+    fn imt_contains_other_user(
+        &mut self,
+        contract_state_tree_height: SymFeltRef,
+        user_id: SymFeltRef,
+        contract_id: SymFeltRef,
+        key: [SymFeltRef; 4],
+        base_offset: SymFeltRef,
+        capacity: SymFeltRef,
+    ) -> SymFeltRef {
+        let value = self.imt_get_other_user_value(contract_state_tree_height, user_id, contract_id, key, base_offset, capacity);
+        let zero = self.op_const(0);
+        let is_zero_0 = self.op_eq(value[0], zero);
+        let is_zero_1 = self.op_eq(value[1], zero);
+        let is_zero_2 = self.op_eq(value[2], zero);
+        let is_zero_3 = self.op_eq(value[3], zero);
+        let zeros_01 = self.op_bool_and(is_zero_0, is_zero_1);
+        let zeros_23 = self.op_bool_and(is_zero_2, is_zero_3);
+        let all_zero = self.op_bool_and(zeros_01, zeros_23);
+        self.op_bool_not(all_zero)
+    }
+
+    /// Insert/upsert a key-value pair into the IMT (self user, current
+    /// contract). Uses the current condition for conditional execution.
+    /// Returns the old value (first 4 elements of the 8-element result).
+    fn imt_insert(&mut self, key: [SymFeltRef; 4], value: [SymFeltRef; 4], base_offset: SymFeltRef, capacity: SymFeltRef) -> [SymFeltRef; 4] {
+        let condition = self.get_current_condition();
+        let b = self.resolve_state_cmd_base(DPNStateCmd::set_imt_contract_state_value(condition, base_offset, capacity, key, value));
+        // SetIMTContractStateValue returns 8 felts: old_value[4] + new_value[4]
+        // Return the old_value (first 4 elements)
+        [
+            self.op_target_at(b, 0),
+            self.op_target_at(b, 1),
+            self.op_target_at(b, 2),
+            self.op_target_at(b, 3),
+        ]
+    }
+
+    /// Update a key-value pair in the IMT (same as insert with upsert
+    /// semantics). Returns the old value.
+    fn imt_update(&mut self, key: [SymFeltRef; 4], new_value: [SymFeltRef; 4], base_offset: SymFeltRef, capacity: SymFeltRef) -> [SymFeltRef; 4] {
+        self.imt_insert(key, new_value, base_offset, capacity)
+    }
+
+    fn imt_contains(&mut self, key: [SymFeltRef; 4], base_offset: SymFeltRef, capacity: SymFeltRef) -> SymFeltRef {
+        let b = self.resolve_state_cmd_base(DPNStateCmd::contains_self_user_current_imt_contract_state_value(
+            base_offset,
+            capacity,
+            key,
+        ));
+        self.op_target_at(b, 0)
+    }
+
     fn emit_event(&mut self, event_data: Vec<SymFeltRef>) {
         if !self.condition_stack.is_empty() {
             panic!("emit_event should not be called in a condition block");

@@ -29,7 +29,7 @@ ts-rs = { workspace = true }
 fastbloom-rs = { workspace = true, features = ["serde"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-zstd = "0.13"
+zstd = { workspace = true }
 
 [features]
 # default = ["is_sync"]

@@ -2,6 +2,7 @@ pub mod delta_merkle_proof;
 pub mod full_merkle_tree_append;
 pub mod generic;
 pub mod historical_root_merkle_proof;
+pub mod imt_contract_state_update;
 pub mod merkle_array_gen;
 pub mod merkle_proof;
 pub mod merkle_proof_bits;

@@ -210,6 +210,24 @@ pub struct PsyContractSlotUpdates<F: RichField> {
     pub slot_updates: Vec<PsySlotUpdate<F>>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct PsyIMTSlotUpdate<F: RichField> {
+    pub key: QHashOut<F>,
+    pub old_value: QHashOut<F>,
+    pub new_value: QHashOut<F>,
+    pub is_insert: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct PsyIMTContractSlotUpdates<F: RichField> {
+    pub contract_id: u32,
+    pub slot_updates: Vec<PsyIMTSlotUpdate<F>>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 pub struct FieldSlotRange {
     pub field_name: String,

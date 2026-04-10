@@ -83,6 +83,7 @@ use serde::Serialize;
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;
 const ZK_SIG_LEAF_TYPE: u64 = 3;
+const EXTERNAL_PROOF_LEAF_TYPE: u64 = 4;
 
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
@@ -360,6 +361,13 @@ impl<
 
     pub async fn get_verify_previous_ups_step_proof(&mut self) -> anyhow::Result<VerifyPreviousUPSStepProofInProofTreeInput<F>> {
         let previous_step_header = self.current_ups_header.clone();
+        tracing::info!(
+            circuit_id = ?self.last_ups_step_proof_info.circuit_id,
+            proof_tree_index = self.last_ups_step_proof_info.proof_tree_index,
+            known_proof_tree_root = %self.last_ups_step_proof_info.known_proof_tree_root,
+            inner_public_inputs_hash = %self.last_ups_step_proof_info.inner_public_inputs_hash,
+            "building verify_previous_ups_step_proof witness"
+        );
         let ups_circuit_whitelist_merkle_proof = self
             .circuit_info
             .get_whitelist_merkle_proof(self.last_ups_step_proof_info.circuit_id)?
@@ -386,6 +394,16 @@ impl<
             historical_root_proof,
             inclusion_proof,
         };
+        tracing::info!(
+            whitelist_root = %ups_circuit_whitelist_merkle_proof.root,
+            whitelist_value_fingerprint = %ups_circuit_whitelist_merkle_proof.value,
+            historical_root = %proof_attestation_witness.historical_root_proof.root,
+            historical_value = %proof_attestation_witness.historical_root_proof.value,
+            inclusion_root = %proof_attestation_witness.inclusion_proof.root,
+            inclusion_value = %proof_attestation_witness.inclusion_proof.value,
+            inclusion_index = proof_attestation_witness.inclusion_proof.index,
+            "verify_previous_ups_step_proof components assembled"
+        );
 
         if !proof_attestation_witness.verify::<H>() {
             anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for previous UPS step");
@@ -436,6 +454,13 @@ impl<
         fn_circuit_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<F>,
     ) -> anyhow::Result<()> {
+        // if self.last_ups_step_proof_info.circuit_id.circuit_type == LocalCircuitType::Unknown {
+        //     tracing::warn!(
+        //         "last_ups_step_proof_info is Unknown before prove_standard_call; proving UPS start as recovery"
+        //     );
+        //     self.prove_ups_start(circuit_mgr).await?;
+        // }
+
         let deferred_tx_pivot_index = self.lps.get_deferred_tx_debt_latest_index();
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();
         let tx_log_item = DPNProvingSessionSimpleMethodCall {
@@ -541,6 +566,10 @@ impl<
             verify_previous_ups_step,
             standard_cfc_step: ups_cfc_standard_input,
         };
+        tracing::info!(
+            "UPS standard tx input: {}",
+            serde_json::to_string_pretty(&circuit_input.standard_cfc_step)?
+        );
         let ups_proof = circuit_mgr.prove_ups_cfc_standard_tx(&circuit_input).await?;
 
         self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCStandard.into();
@@ -605,7 +634,19 @@ impl<
     pub async fn prove_burn_fee<CM: UPSCircuitManager<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
         tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
 
-        let total_da_fee = DA_FEE * self.lps.get_total_slots_modified().to_canonical_u64();
+        // Fee estimation must be side-effect free. Calling get_all_state_updates()
+        // here mutates and replays the in-session trees, which can desync the next
+        // burn transaction witness from tracked slot versions.
+        let mut total_slots_modified = self.lps.get_total_modified_slots_for_fee();
+        let has_contract_0_slot_0 = self
+            .lps
+            .has_positional_slot_update(TOKEN_CONTRACT_ID as u64, 0);
+
+        if !has_contract_0_slot_0 {
+            total_slots_modified += 1;
+        }
+
+        let total_da_fee = DA_FEE * total_slots_modified as u64;
 
         tracing::info!("Adding burn transaction for DA fee: {}", total_da_fee);
 
@@ -623,6 +664,24 @@ impl<
             .await?;
 
         Ok(())
+    }
+
+    /// Add an external proof (e.g. private note inclusion proof) to session proof tree.
+    /// Returns the inserted leaf index.
+    pub async fn add_external_proof(
+        &mut self,
+        fingerprint: QHashOut<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+        verifier_data: VerifierOnlyCircuitData<C, D>,
+    ) -> u64 {
+        self.proof_tree_state
+            .injest_single_leaf_proof(InputLeafProof {
+                leaf_circuit_type: EXTERNAL_PROOF_LEAF_TYPE,
+                fingerprint,
+                verifier_data,
+                proof,
+            })
+            .await
     }
 
     pub async fn prove_end_cap<CM: UPSCircuitManager<C, D> + psy_vm::ups::circuit_manager::PortableQTreeRecursion<C, D> + ?Sized>(
@@ -687,14 +746,20 @@ impl<
                 verifier_data,
             })
             .await;
+        tracing::info!(
+            zk_sig_proof_index,
+            last_ups_step_proof_index = self.last_ups_step_proof_info.proof_tree_index,
+            "zk signature proof inserted into proof tree"
+        );
 
         // compress all proofs into a sign tree proof
         tracing::info!("compress all proofs into a sign tree proof");
         self.proof_tree_state.finalize_tree(circuit_mgr).await?;
 
         let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index).await;
+        let verify_previous_ups_step_input = self.get_verify_previous_ups_step_proof().await?;
         let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput {
-            verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof().await?,
+            verify_previous_ups_step_input,
             verify_zk_signature_proof_input: AttestProofInTreeInput {
                 fingerprint: zk_sig_fingerprint,
                 public_inputs_hash: proof_public_inputs_hash,
@@ -705,8 +770,26 @@ impl<
             slots_modified: self.lps.get_total_slots_modified(),
             second_to_last_tx_hash_stack: self.previous_ups_header.current_state.tx_hash_stack,
         };
+        let nonce_u64 = end_cap_from_proof_tree_input.nonce.to_canonical_u64();
+        let slots_modified_u64 = end_cap_from_proof_tree_input.slots_modified.to_canonical_u64();
+        tracing::info!(
+            nonce = nonce_u64,
+            slots_modified = slots_modified_u64,
+            second_to_last_tx_hash_stack = %end_cap_from_proof_tree_input.second_to_last_tx_hash_stack,
+            previous_user_leaf_hash = %end_cap_from_proof_tree_input.verify_previous_ups_step_input.previous_step_header.current_state.user_leaf.qfhash::<PsyHasher>(),
+            current_tx_hash_stack = %self.current_ups_header.current_state.tx_hash_stack,
+            "assembled end-cap witness input"
+        );
 
         let finalized_proof_tree_record = self.proof_tree_state.get_finalized_proot_tree_record().await?;
+        tracing::info!(
+            finalized_fingerprint = %finalized_proof_tree_record.fingerprint,
+            finalized_circuit_type = ?finalized_proof_tree_record.circuit_type,
+            finalized_state_transition_start = %finalized_proof_tree_record.agg_header.state_transition_start,
+            finalized_state_transition_end = %finalized_proof_tree_record.agg_header.state_transition_end,
+            finalized_agg_circuit_whitelist_root = %finalized_proof_tree_record.agg_header.agg_circuit_whitelist_root,
+            "finalized proof-tree record before prove_ups_end_cap"
+        );
 
         let proof = circuit_mgr
             .prove_ups_end_cap(&self.circuit_info, &end_cap_from_proof_tree_input, &finalized_proof_tree_record)
@@ -990,4 +1073,5 @@ impl<
             contract_updates,
         })
     }
+
 }

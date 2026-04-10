@@ -30,9 +30,12 @@ kvq = { workspace = true }
 hashbrown = { workspace = true }
 async-trait = { workspace = true }
 hex = { workspace = true }
+tiny-keccak = { workspace = true }
+k256 = { workspace = true }
 rand = { workspace = true }
 serde_with = { workspace = true }
 bincode = { workspace = true }
+base64 = { workspace = true }
 dashmap = { workspace = true }
 ts-rs =  { workspace = true }
 clap = { workspace = true }
@@ -53,6 +56,7 @@ rpassword = { workspace = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 reqwest = { workspace = true }
 shadow-rs = { workspace = true }
+nostr-sdk = { version = "0.44", features = ["nip44", "nip59"] }
 
 # Native-only build dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]

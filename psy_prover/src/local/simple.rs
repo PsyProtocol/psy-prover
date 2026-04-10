@@ -83,11 +83,57 @@ where
         let new_checkpoint_id = self.latest_block_state.checkpoint_id + 1;
 
         for u in proof_input.input.contract_state_updates.iter() {
-            let height = u.contract_state_tree_updates[0].siblings.len() as u8;
             let contract_id = u.user_contract_tree_update_proof.index as u32;
-            for dmp in u.contract_state_tree_updates.iter() {
-                self.state_store
-                    .set_user_state_tree_leaf_hash(new_checkpoint_id, user_id, contract_id, height, dmp.index, dmp.new_value)?;
+            for update in u.contract_state_tree_updates.iter() {
+                match update {
+                    psy_data::guta::api::ContractStateUpdate::Positional { delta_proof } => {
+                        let height = delta_proof.siblings.len() as u8;
+                        self.state_store.set_user_state_tree_leaf_hash(
+                            new_checkpoint_id,
+                            user_id,
+                            contract_id,
+                            height,
+                            delta_proof.index,
+                            delta_proof.new_value,
+                        )?;
+                    }
+                    psy_data::guta::api::ContractStateUpdate::IMT { update } => match update {
+                        psy_data::qdata::imt_proof::IMTContractStateUpdate::Update { delta_proof, .. } => {
+                            let height = delta_proof.siblings.len() as u8;
+                            self.state_store.set_user_state_tree_leaf_hash(
+                                new_checkpoint_id,
+                                user_id,
+                                contract_id,
+                                height,
+                                delta_proof.index,
+                                delta_proof.new_value,
+                            )?;
+                        }
+                        psy_data::qdata::imt_proof::IMTContractStateUpdate::Insert {
+                            predecessor_delta_proof,
+                            new_leaf_delta_proof,
+                            ..
+                        } => {
+                            let height = predecessor_delta_proof.siblings.len() as u8;
+                            self.state_store.set_user_state_tree_leaf_hash(
+                                new_checkpoint_id,
+                                user_id,
+                                contract_id,
+                                height,
+                                predecessor_delta_proof.index,
+                                predecessor_delta_proof.new_value,
+                            )?;
+                            self.state_store.set_user_state_tree_leaf_hash(
+                                new_checkpoint_id,
+                                user_id,
+                                contract_id,
+                                height,
+                                new_leaf_delta_proof.index,
+                                new_leaf_delta_proof.new_value,
+                            )?;
+                        }
+                    },
+                }
             }
         }
 

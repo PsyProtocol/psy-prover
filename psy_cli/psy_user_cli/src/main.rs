@@ -11,8 +11,8 @@ shadow!(build);
 use clap::Parser;
 
 use crate::subcommand::{
-    check_tx, claim_amount, claim_reward_v2, deploy_contract, generate_batch_proof_miner_reward_proofs, get_checkpoint_id_for_unique_pending_id,
-    register_user, submit_end_cap_proof, wallet, Cli, Commands,
+    check_tx, claim_amount, claim_deposit, claim_reward_v2, deploy_contract, generate_batch_proof_miner_reward_proofs,
+    get_checkpoint_id_for_unique_pending_id, register_user, submit_end_cap_proof, wallet, withdraw, Cli, Commands,
 };
 
 #[tokio::main]
@@ -348,6 +348,12 @@ async fn main() -> anyhow::Result<()> {
         Commands::GetPsySdcFingerprint(get_psy_sdc_fingerprint) => crate::subcommand::get_psy_sdc_fingerprint::run(get_psy_sdc_fingerprint).await?,
 
         Commands::GetUserEndCapCommonData => crate::subcommand::get_user_endcap_common_data::run().await?,
+
+        Commands::PrivateTransfer(args) => crate::subcommand::private_transfer::run(args).await?,
+        Commands::PrivateClaim(args) => crate::subcommand::private_claim::run(args).await?,
+        Commands::DeriveNoteOwner(args) => crate::subcommand::shield_address::run(args).await?,
+        Commands::ClaimDeposit(args) => claim_deposit::run(args).await?,
+        Commands::Withdraw(args) => withdraw::run(args).await?,
     }
     Ok(())
 }

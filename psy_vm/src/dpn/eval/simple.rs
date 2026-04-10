@@ -18,6 +18,7 @@ pub struct DummyContextEvalInput {
     pub global_contract_slots: HashMap<ContractHashRef, [u64; 4]>,
     pub contract_deployers: HashMap<u64, [u64; 4]>,
     pub user_public_key_hash: [u64; 4],
+    pub session_proof_tree_root: [u64; 4],
     pub last_nonce: u64,
 }
 
@@ -33,6 +34,7 @@ impl DummyContextEvalInput {
             global_contract_slots: HashMap::new(),
             contract_deployers: HashMap::new(),
             user_public_key_hash: [1337; 4],
+            session_proof_tree_root: [0; 4],
         }
     }
     fn get_global_contract_hash_or_default(&self, user_id: u64, contract_id: u64, index: u64) -> [u64; 4] {
@@ -88,5 +90,9 @@ impl ContextInput for DummyContextEvalInput {
 
     fn get_user_public_key_hash(&self) -> [u64; 4] {
         self.user_public_key_hash
+    }
+
+    fn get_session_proof_tree_root(&self) -> [u64; 4] {
+        self.session_proof_tree_root
     }
 }

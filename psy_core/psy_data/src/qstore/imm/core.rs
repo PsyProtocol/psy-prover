@@ -78,6 +78,44 @@ impl<T: KVQBinaryStore> QMetaDataStoreReaderSync<F> for T {
     async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<PsyUserEventRecord<F>> {
         UserEventTableStore::<T>::get_event_by_index(self, checkpoint_id, user_id, event_index)
     }
+
+    async fn contract_state_imt_get_leaf_preimage(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        leaf_index: u64,
+    ) -> anyhow::Result<crate::qdata::imt_contract_state::IMTContractStateLeaf<F>> {
+        let _ = (checkpoint_id, user_id, contract_id, leaf_index);
+        anyhow::bail!("IMT leaf preimage not found")
+    }
+
+    async fn contract_state_imt_get_leaf_index_for_key(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        key: &QHashOut<F>,
+    ) -> anyhow::Result<u64> {
+        let _ = (checkpoint_id, user_id, contract_id, key);
+        anyhow::bail!("Key not found in IMT")
+    }
+
+    async fn contract_state_imt_find_predecessor(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        key: &QHashOut<F>,
+    ) -> anyhow::Result<(u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)> {
+        let _ = (checkpoint_id, user_id, contract_id, key);
+        anyhow::bail!("No predecessor found for key")
+    }
+
+    async fn contract_state_imt_get_next_append_index(&self, user_id: u64, contract_id: u64) -> anyhow::Result<u64> {
+        let _ = (user_id, contract_id);
+        Ok(0)
+    }
 }
 
 impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {

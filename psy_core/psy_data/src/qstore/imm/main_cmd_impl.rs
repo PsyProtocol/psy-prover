@@ -135,4 +135,46 @@ impl<F: RichField, R: PsyComboDataStoreReaderSync<F> + Sync> PsyReadCommandProce
     async fn resolve_get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
         self.get_latest_block_state().await
     }
+
+    async fn resolve_contract_state_imt_get_leaf_preimage(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafPreimage,
+    ) -> anyhow::Result<crate::qdata::imt_contract_state::IMTContractStateLeaf<F>> {
+        self.contract_state_imt_get_leaf_preimage(input.checkpoint_id, input.user_id, input.contract_id as u64, input.leaf_index)
+            .await
+    }
+
+    async fn resolve_contract_state_imt_get_leaf_index_for_key(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafIndexForKey,
+    ) -> anyhow::Result<u64> {
+        self.contract_state_imt_get_leaf_index_for_key(
+            input.checkpoint_id,
+            input.user_id,
+            input.contract_id as u64,
+            &QHashOut::from_values(input.key[0], input.key[1], input.key[2], input.key[3]),
+        )
+        .await
+    }
+
+    async fn resolve_contract_state_imt_find_predecessor(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdFindPredecessor,
+    ) -> anyhow::Result<(u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)> {
+        self.contract_state_imt_find_predecessor(
+            input.checkpoint_id,
+            input.user_id,
+            input.contract_id as u64,
+            &QHashOut::from_values(input.key[0], input.key[1], input.key[2], input.key[3]),
+        )
+        .await
+    }
+
+    async fn resolve_contract_state_imt_get_next_append_index(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetNextAppendIndex,
+    ) -> anyhow::Result<u64> {
+        self.contract_state_imt_get_next_append_index(input.user_id, input.contract_id as u64)
+            .await
+    }
 }

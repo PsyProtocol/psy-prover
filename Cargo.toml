@@ -223,6 +223,7 @@ psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-feat
 psy_provider = { path = "./psy_provider" }
 
 serial_test = "3.2"
+static_assertions = "1.1.0"
 
 shadow-rs = "0.27.1"
 bs58 = { version = "0.5.1", features = ["std", "check"] }

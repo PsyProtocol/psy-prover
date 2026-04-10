@@ -33,6 +33,20 @@ pub enum DPNStateCommandType {
     // checkpoint state commands (not order sensitive) (40-47)
     GetCheckpointLeafStats = 40,
     GetContractLeaf = 41,
+    GetGlobalStateRoots = 42,
+
+    // IMT key-based state commands (48-63)
+    // set IMT state by 256-bit key
+    SetIMTContractStateValue = 48,
+
+    // get IMT state by 256-bit key (self user, current contract)
+    GetSelfUserCurrentIMTContractStateValue = 56,
+    // get IMT state by 256-bit key (self user, external contract)
+    GetSelfUserExternalIMTContractStateValue = 57,
+    // get IMT state by 256-bit key (other user)
+    GetOtherUserIMTContractStateValue = 58,
+    // contains IMT key by 256-bit key (self user, current contract)
+    ContainsSelfUserCurrentIMTContractStateValue = 59,
 }
 
 impl From<u8> for DPNStateCommandType {
@@ -60,6 +74,13 @@ impl From<u8> for DPNStateCommandType {
 
             40 => DPNStateCommandType::GetCheckpointLeafStats,
             41 => DPNStateCommandType::GetContractLeaf,
+            42 => DPNStateCommandType::GetGlobalStateRoots,
+
+            48 => DPNStateCommandType::SetIMTContractStateValue,
+            56 => DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue,
+            57 => DPNStateCommandType::GetSelfUserExternalIMTContractStateValue,
+            58 => DPNStateCommandType::GetOtherUserIMTContractStateValue,
+            59 => DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue,
             _ => panic!("Unknown DPNStateCommandType: {}", value),
         }
     }
@@ -92,6 +113,13 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotRange => DPNBuiltInDataType::TargetArray,
             DPNStateCommandType::GetCheckpointLeafStats => DPNBuiltInDataType::TargetArray,
             DPNStateCommandType::GetContractLeaf => DPNBuiltInDataType::TargetArray,
+            DPNStateCommandType::GetGlobalStateRoots => DPNBuiltInDataType::TargetArray,
+
+            DPNStateCommandType::SetIMTContractStateValue => DPNBuiltInDataType::TargetArray,
+            DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue => DPNBuiltInDataType::HashOut,
+            DPNStateCommandType::GetSelfUserExternalIMTContractStateValue => DPNBuiltInDataType::HashOut,
+            DPNStateCommandType::GetOtherUserIMTContractStateValue => DPNBuiltInDataType::HashOut,
+            DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue => DPNBuiltInDataType::Target,
         }
     }
     pub fn is_read_only(&self) -> bool {
@@ -113,6 +141,13 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotRange => true,
             DPNStateCommandType::GetCheckpointLeafStats => true,
             DPNStateCommandType::GetContractLeaf => true,
+            DPNStateCommandType::GetGlobalStateRoots => true,
+
+            DPNStateCommandType::SetIMTContractStateValue => false,
+            DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue => true,
+            DPNStateCommandType::GetSelfUserExternalIMTContractStateValue => true,
+            DPNStateCommandType::GetOtherUserIMTContractStateValue => true,
+            DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue => true,
         }
     }
     pub fn updates_state(&self) -> bool {
@@ -138,6 +173,13 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotRange => false,
             DPNStateCommandType::GetCheckpointLeafStats => false,
             DPNStateCommandType::GetContractLeaf => false,
+            DPNStateCommandType::GetGlobalStateRoots => false,
+
+            DPNStateCommandType::SetIMTContractStateValue => true,
+            DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue => true,
+            DPNStateCommandType::GetSelfUserExternalIMTContractStateValue => true,
+            DPNStateCommandType::GetOtherUserIMTContractStateValue => false,
+            DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue => true,
         }
     }
     pub fn is_set_state_order_sensitive(&self) -> bool {
@@ -161,6 +203,13 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotRange => false,
             DPNStateCommandType::GetCheckpointLeafStats => false,
             DPNStateCommandType::GetContractLeaf => false,
+            DPNStateCommandType::GetGlobalStateRoots => false,
+
+            DPNStateCommandType::SetIMTContractStateValue => true,
+            DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue => true,
+            DPNStateCommandType::GetSelfUserExternalIMTContractStateValue => false,
+            DPNStateCommandType::GetOtherUserIMTContractStateValue => false,
+            DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue => true,
         }
     }
     pub fn is_inline_external_call_cmd(&self) -> bool {
@@ -175,8 +224,12 @@ impl DPNStateCommandType {
             DPNStateCommandType::SetContractStateSlotSingle => true,
             DPNStateCommandType::SetContractStateSlotRange => true,
             DPNStateCommandType::ClearEntireTree => true,
+            DPNStateCommandType::SetIMTContractStateValue => true,
             _ => false,
         }
+    }
+    pub fn is_imt_set_state_cmd(&self) -> bool {
+        matches!(self, DPNStateCommandType::SetIMTContractStateValue)
     }
 }
 
@@ -201,6 +254,13 @@ impl std::fmt::Display for DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotRange => "GetOtherUserContractStateSlotRange",
             DPNStateCommandType::GetCheckpointLeafStats => "GetCheckpointLeafStats",
             DPNStateCommandType::GetContractLeaf => "GetContractLeaf",
+            DPNStateCommandType::GetGlobalStateRoots => "GetGlobalStateRoots",
+
+            DPNStateCommandType::SetIMTContractStateValue => "SetIMTContractStateValue",
+            DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue => "GetSelfUserCurrentIMTContractStateValue",
+            DPNStateCommandType::GetSelfUserExternalIMTContractStateValue => "GetSelfUserExternalIMTContractStateValue",
+            DPNStateCommandType::GetOtherUserIMTContractStateValue => "GetOtherUserIMTContractStateValue",
+            DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue => "ContainsSelfUserCurrentIMTContractStateValue",
         };
         write!(f, "DPNStateCommandType::{}", r)
     }

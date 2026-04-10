@@ -12,7 +12,11 @@ use ts_rs::TS;
 
 use crate::{
     dpn::cfc_context_input::DapenCFCUserTransactionInputContext,
-    qdata::{checkpoint::PsyCheckpointLeafCompactWithStateRoots, contract_inclusion::PsyContractFunctionInclusionProof},
+    qdata::{
+        checkpoint::PsyCheckpointLeafCompactWithStateRoots,
+        contract_inclusion::PsyContractFunctionInclusionProof,
+        imt_proof::IMTContractStateUpdate,
+    },
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
@@ -26,6 +30,29 @@ pub struct UPSCFCStandardStateDeltaInput<F: RichField> {
 }
 
 impl<F: RichField> KVQSerializable for UPSCFCStandardStateDeltaInput<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+/// IMT-based CFC state delta input. Parallels `UPSCFCStandardStateDeltaInput`
+/// but uses IMT contract state updates instead of positional merkle proofs.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct UPSCFCStandardIMTStateDeltaInput<F: RichField> {
+    pub cfc_transaction_input_context: DapenCFCUserTransactionInputContext<F>,
+    pub user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub imt_state_updates: Vec<IMTContractStateUpdate<F>>,
+    pub deferred_tx_debt_pivot_proof: MerkleProofCore<QHashOut<F>>,
+    pub inline_tx_debt_pivot_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+impl<F: RichField> KVQSerializable for UPSCFCStandardIMTStateDeltaInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }

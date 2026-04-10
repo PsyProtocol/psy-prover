@@ -29,6 +29,11 @@ pub struct PsyCmdDataStoreCache<F: RichField> {
     pub block_state_cache: HashMap<u64, PsyBlockState>,
     pub hash_cmd_cache: HashMap<QSRHashCmd, QHashOut<F>>,
     pub merkle_cmd_cache: HashMap<QSRMerkleCmd, MerkleProofCore<QHashOut<F>>>,
+
+    pub imt_leaf_preimage_cache: HashMap<super::cmd::QSRIMTCmdGetLeafPreimage, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>>,
+    pub imt_predecessor_cache: HashMap<super::cmd::QSRIMTCmdFindPredecessor, (u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)>,
+    pub imt_index_cache: HashMap<super::cmd::QSRIMTCmdGetLeafIndexForKey, u64>,
+    pub imt_next_append_index_cache: HashMap<super::cmd::QSRIMTCmdGetNextAppendIndex, u64>,
 }
 impl<F: RichField> PsyCmdDataStoreCache<F> {
     pub fn new() -> Self {
@@ -40,6 +45,10 @@ impl<F: RichField> PsyCmdDataStoreCache<F> {
             block_state_cache: HashMap::new(),
             hash_cmd_cache: HashMap::new(),
             merkle_cmd_cache: HashMap::new(),
+            imt_leaf_preimage_cache: HashMap::new(),
+            imt_predecessor_cache: HashMap::new(),
+            imt_index_cache: HashMap::new(),
+            imt_next_append_index_cache: HashMap::new(),
         }
     }
 }
@@ -64,9 +73,17 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F> + QUserIdManager> PsyCmdSto
         self.cache = PsyCmdDataStoreCache::new();
     }
 
+    pub fn clear_imt_caches_mut(&mut self) {
+        self.cache.imt_leaf_preimage_cache.clear();
+        self.cache.imt_predecessor_cache.clear();
+        self.cache.imt_index_cache.clear();
+        self.cache.imt_next_append_index_cache.clear();
+    }
+
     pub fn set_user_id(&mut self, user_id: u64) {
         self.read_store.set_user_id(user_id);
     }
+
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -284,5 +301,54 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F> + QUserIdManager + Send> Ps
 
     async fn resolve_get_latest_block_state_mut(&mut self) -> anyhow::Result<PsyBlockState> {
         self.read_store.resolve_get_latest_block_state().await
+    }
+
+    async fn resolve_contract_state_imt_get_leaf_preimage_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafPreimage,
+    ) -> anyhow::Result<crate::qdata::imt_contract_state::IMTContractStateLeaf<F>> {
+        if self.cache.imt_leaf_preimage_cache.contains_key(&input) {
+            Ok(self.cache.imt_leaf_preimage_cache.get(&input).unwrap().clone())
+        } else {
+            let result = self.read_store.resolve_contract_state_imt_get_leaf_preimage(input).await?;
+            self.cache.imt_leaf_preimage_cache.insert(*input, result);
+            Ok(result)
+        }
+    }
+
+    async fn resolve_contract_state_imt_get_leaf_index_for_key_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafIndexForKey,
+    ) -> anyhow::Result<u64> {
+        if self.cache.imt_index_cache.contains_key(&input) {
+            Ok(self.cache.imt_index_cache.get(&input).unwrap().clone())
+        } else {
+            let result = self.read_store.resolve_contract_state_imt_get_leaf_index_for_key(input).await?;
+            self.cache.imt_index_cache.insert(*input, result);
+            Ok(result)
+        }
+    }
+
+    async fn resolve_contract_state_imt_find_predecessor_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdFindPredecessor,
+    ) -> anyhow::Result<(u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)> {
+        if self.cache.imt_predecessor_cache.contains_key(&input) {
+            Ok(self.cache.imt_predecessor_cache.get(&input).unwrap().clone())
+        } else {
+            let result = self.read_store.resolve_contract_state_imt_find_predecessor(input).await?;
+            self.cache.imt_predecessor_cache.insert(*input, result);
+            Ok(result)
+        }
+    }
+
+    async fn resolve_contract_state_imt_get_next_append_index_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetNextAppendIndex,
+    ) -> anyhow::Result<u64> {
+        // Never cache: imt_next_append_index has no checkpoint_id and changes as
+        // transactions commit. A stale cached value causes "slot not empty" errors
+        // when another session commits between our session start and VM execution.
+        self.read_store.resolve_contract_state_imt_get_next_append_index(input).await
     }
 }

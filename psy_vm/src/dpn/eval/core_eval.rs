@@ -10,6 +10,7 @@ use plonky2::{
     hash::poseidon::PoseidonHash,
     plonk::config::{GenericHashOut, Hasher},
 };
+use tiny_keccak::{Hasher as _, Keccak};
 
 use super::traits::{ContextEval, ContextInput, EvalCache};
 use crate::dpn::ops::{op_types::DPNOpType, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
@@ -24,6 +25,27 @@ fn sum_bits(bits: &[u64]) -> u64 {
     assert!(bits.len() <= 64, "cannot sum more than 64 bits");
     let result = bits.iter().fold(0, |acc, x| acc + x);
     GoldilocksField::from_noncanonical_u64(result).to_canonical_u64()
+}
+
+fn keccak_words_u32_be_to_u32_vec(words: &[u64]) -> Vec<u32> {
+    let mut bytes = Vec::with_capacity(words.len() * 4);
+    for word in words {
+        bytes.extend_from_slice(&(*word as u32).to_be_bytes());
+    }
+    let mut digest = [0u8; 32];
+    let mut keccak = Keccak::v256();
+    keccak.update(&bytes);
+    keccak.finalize(&mut digest);
+
+    digest
+        .chunks_exact(4)
+        .take(8)
+        .map(|chunk| {
+            let mut bytes = [0u8; 4];
+            bytes.copy_from_slice(chunk);
+            u32::from_be_bytes(bytes)
+        })
+        .collect()
 }
 trait EvalHelpers: ContextEval {
     fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> (u64, u64);
@@ -146,6 +168,7 @@ impl ContextEval for SymFeltStore {
                 }
                 DPNOpType::HashNoPad => panic!("you cannot directly evaluate HashNoPad"),
                 DPNOpType::HashTwoToOne => panic!("you cannot directly evaluate HashTwoToOne"),
+                DPNOpType::Keccak256 => panic!("you cannot directly evaluate Keccak256"),
                 DPNOpType::HashPad => panic!("you cannot directly evaluate HashPad"),
                 DPNOpType::Select => {
                     let args = self.resolve_array_args(felt_ref, input, cache);
@@ -209,6 +232,9 @@ impl ContextEval for SymFeltStore {
                 DPNOpType::GetCheckpointId => input.get_checkpoint_id(),
                 DPNOpType::GetNonce => input.get_user_nonce(),
                 DPNOpType::GetUserPublicKeyHash => todo!(),
+                DPNOpType::GetSessionProofTreeRoot => {
+                    panic!("GetSessionProofTreeRoot is hash-typed and should not be resolved as a felt")
+                }
                 DPNOpType::GetStateQueryResult => todo!(),
                 DPNOpType::GetStateQueryResultSingle => todo!(),
                 DPNOpType::UnaryInverse => self.resolve_unary_felt_arg_gl(felt_ref, input, cache).inverse().to_canonical_u64(),
@@ -343,12 +369,17 @@ impl ContextEval for SymFeltStore {
                     let result = PoseidonHash::two_to_one(left, right);
                     result.elements.iter().map(|x| x.to_canonical_u64()).collect()
                 }
+                DPNOpType::Keccak256 => {
+                    let data = self.resolve_array_args(felt_ref, input, cache);
+                    keccak_words_u32_be_to_u32_vec(&data).iter().map(|x| *x as u64).collect()
+                }
                 DPNOpType::HashPad => {
                     let data = self.resolve_array_args_gl(felt_ref, input, cache);
                     let result = PoseidonHash::hash_pad(&data).to_vec();
                     result.iter().map(|x| x.to_canonical_u64()).collect()
                 }
                 DPNOpType::GetUserPublicKeyHash => input.get_user_public_key_hash().to_vec(),
+                DPNOpType::GetSessionProofTreeRoot => input.get_session_proof_tree_root().to_vec(),
                 _ => panic!("you cannot directly evaluate an array ref"),
             };
 

@@ -4,5 +4,6 @@ use serde::{Deserialize, Serialize};
 pub enum TxStatus {
     Pending,
     Confirmed,
+    Stale,
     Submittable,
 }

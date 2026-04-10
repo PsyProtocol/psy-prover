@@ -20,7 +20,6 @@ use psy_data::{
 use tracing::{debug, error, info, instrument};
 
 use super::{provider::RpcProvider, request::*};
-use crate::psy_rpc_call_back;
 
 type F = GoldilocksField;
 
@@ -1252,8 +1251,179 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
         self.get_realm_block_state(checkpoint_id).await
     }
+
+    async fn contract_state_imt_get_leaf_preimage(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        leaf_index: u64,
+    ) -> anyhow::Result<psy_data::qdata::imt_contract_state::IMTContractStateLeaf<F>> {
+        info!(
+            "Fetching IMT leaf preimage checkpoint_id: {}, user_id: {}, contract_id: {}, leaf_index: {}",
+            checkpoint_id, user_id, contract_id, leaf_index
+        );
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QIMTLeafPreimageRPCRequest {
+            checkpoint_id,
+            user_id,
+            contract_id,
+            leaf_index,
+        };
+        let response = psy_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetIMTLeafPreimage(input),
+            psy_data::qdata::imt_contract_state::IMTContractStateLeaf<F>
+        );
+        match response.result {
+            ResponseResult::Success(leaf) => {
+                info!("Successfully fetched IMT leaf preimage");
+                Ok(leaf)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("contract_state_imt_get_leaf_preimage rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    async fn contract_state_imt_get_leaf_index_for_key(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        key: &QHashOut<F>,
+    ) -> anyhow::Result<u64> {
+        info!(
+            "Fetching IMT leaf index for key checkpoint_id: {}, user_id: {}, contract_id: {}, key: {}",
+            checkpoint_id, user_id, contract_id, key
+        );
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QIMTLeafIndexForKeyRPCRequest::<F> {
+            checkpoint_id,
+            user_id,
+            contract_id,
+            key: key.clone(),
+        };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetIMTLeafIndexForKey(input), u64);
+        match response.result {
+            ResponseResult::Success(index) => {
+                info!("Successfully fetched IMT leaf index: {}", index);
+                Ok(index)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("contract_state_imt_get_leaf_index_for_key rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    async fn contract_state_imt_find_predecessor(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        key: &QHashOut<F>,
+    ) -> anyhow::Result<(u64, psy_data::qdata::imt_contract_state::IMTContractStateLeaf<F>)> {
+        info!(
+            "Finding IMT predecessor checkpoint_id: {}, user_id: {}, contract_id: {}",
+            checkpoint_id, user_id, contract_id
+        );
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QFindIMTPredecessorRPCRequest {
+            checkpoint_id,
+            user_id,
+            contract_id,
+            key: key.clone(),
+        };
+        let response = psy_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::FindIMTPredecessor(input),
+            QFindIMTPredecessorResponse<F>
+        );
+        match response.result {
+            ResponseResult::Success(resp) => {
+                info!("Successfully found IMT predecessor at index: {}", resp.leaf_index);
+                Ok((resp.leaf_index, resp.leaf))
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("contract_state_imt_find_predecessor rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    async fn contract_state_imt_get_next_append_index(&self, user_id: u64, contract_id: u64) -> anyhow::Result<u64> {
+        info!(
+            "Fetching IMT next append index user_id: {}, contract_id: {}",
+            user_id, contract_id
+        );
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QIMTNextAppendIndexRPCRequest {
+            user_id,
+            contract_id,
+        };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetIMTNextAppendIndex(input), u64);
+        match response.result {
+            ResponseResult::Success(index) => {
+                info!("Successfully fetched IMT next append index: {}", index);
+                Ok(index)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("contract_state_imt_get_next_append_index rpc call failed `{:?}`", e))
+            }
+        }
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl PsyComboDataStoreReaderSync<F> for RpcProvider {}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl RpcProvider {
+    pub async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyCheckpointGlobalStateRoots<F>> {
+        info!("Fetching checkpoint global state roots for checkpoint {}", checkpoint_id);
+        let rpc_url = self.get_coordinator_url()?;
+        let input = QCheckpointGlobalStateRootsRPCRequest { checkpoint_id };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetCheckpointGlobalStateRoots(input), psy_data::qdata::checkpoint::PsyCheckpointGlobalStateRoots<F>);
+        match response.result {
+            ResponseResult::Success(roots) => {
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    "Successfully fetched checkpoint global state roots"
+                );
+                Ok(roots)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_checkpoint_global_state_roots rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    pub async fn get_checkpoint_state_transition_proof(&self, checkpoint_id: u64) -> anyhow::Result<Vec<u8>> {
+        info!("Fetching checkpoint state transition proof for checkpoint {}", checkpoint_id);
+        let rpc_url = self.get_coordinator_url()?;
+        let input = QCheckpointStateTransitionProofRPCRequest { checkpoint_id };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetCheckpointStateTransitionProof(input), Vec<u8>);
+        match response.result {
+            ResponseResult::Success(proof_bytes) => {
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    proof_len = proof_bytes.len(),
+                    "Successfully fetched checkpoint state transition proof"
+                );
+                Ok(proof_bytes)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_checkpoint_state_transition_proof rpc call failed `{:?}`", e))
+            }
+        }
+    }
+}

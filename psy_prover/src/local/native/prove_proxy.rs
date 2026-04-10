@@ -229,6 +229,7 @@ pub trait ProveProxyRpc {
         right_proof: ProofWithPublicInputs<F, C, D>,
         right_verifier_data: AltVerifierOnlyCircuitData<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+
 }
 
 #[derive(Debug)]
@@ -365,10 +366,6 @@ impl ProveProxyServerProvider {
 
     async fn register_contract_circuits_inner(&self, contract_id: u64) -> anyhow::Result<()> {
         tracing::info!("🔔 register_contract_circuits contract_id: {}", contract_id);
-        if self.circuit_manager.contract_circuits.get(&contract_id).is_some() {
-            tracing::info!("contract {} is already registered", contract_id);
-            return Ok(());
-        }
         let contract_code = self
             .rpc_provider
             .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })
@@ -448,11 +445,10 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         contract_code: ContractCodeDefinition,
         method_name: String,
     ) -> Result<(u64, DPNFunctionCircuitDefinition), ErrorObjectOwned> {
-        self.register_contract_circuits(contract_id, contract_code.clone()).await?;
-
-        let (fn_id, fn_code_def) = self.get_fn_id_and_circuit_def(contract_id, method_name).await?;
-
-        Ok((fn_id as u64, fn_code_def))
+        self.circuit_manager
+            .resolve_contract_function_by_method_name(contract_id, &contract_code, method_name)
+            .await
+            .map_err(|err| ErrorObjectOwned::owned(1, "resolve contract function by method name error", Some(err.to_string())))
     }
 
     async fn resolve_contract_function_by_method_id(
@@ -461,23 +457,10 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         contract_code: ContractCodeDefinition,
         method_id: u32,
     ) -> Result<(u64, DPNFunctionCircuitDefinition), ErrorObjectOwned> {
-        self.register_contract_circuits(contract_id, contract_code.clone()).await?;
-        let (fn_id, fn_code_def) = contract_code
-            .functions
-            .iter()
-            .enumerate()
-            .find_map(|(fn_id, f)| if f.method_id == method_id { Some((fn_id, f)) } else { None })
-            .ok_or_else(|| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "method not found in contract",
-                    Some(format!("method ({}) not found in contract", method_id)),
-                )
-            })?;
-
-        let fn_circuit_def = cfc_code_definition_to_dapen_fc(fn_code_def)
-            .map_err(|err| ErrorObjectOwned::owned(1, "cfc_code_definition_to_dapen_fc error", Some(err.to_string())))?;
-        Ok((fn_id as u64, fn_circuit_def))
+        self.circuit_manager
+            .resolve_contract_function_by_method_id(contract_id, &contract_code, method_id)
+            .await
+            .map_err(|err| ErrorObjectOwned::owned(1, "resolve contract function by method id error", Some(err.to_string())))
     }
 
     async fn get_circuits_data(&self) -> Result<String, ErrorObjectOwned> {
@@ -497,35 +480,25 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         method_name: String,
     ) -> Result<(u64, DPNFunctionCircuitDefinition), ErrorObjectOwned> {
         tracing::info!("🔔 get_fn_id contract_id: {}, method_name: {}", contract_id, method_name);
-        if self.circuit_manager.contract_circuits.get(&contract_id).is_none() {
-            tracing::warn!("contract {} is not registered, can not get fn id", contract_id);
-            tracing::warn!("register contract {} first", contract_id);
-            self.register_contract_circuits_inner(contract_id)
-                .await
-                .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
-        }
-        if let Some(circuits_arc) = self.circuit_manager.contract_circuits.get(&contract_id) {
-            let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
-            tracing::info!("get contract {} circuits", contract_id);
-            for (id, circuit) in circuits.iter().enumerate() {
-                tracing::info!("get contract {} method {} id: {}", contract_id, circuit.fn_def.name, id);
-                if circuit.fn_def.name == method_name {
-                    tracing::info!("return contract {} method {} id: {}", contract_id, method_name, id);
-                    return Ok((id as u64, circuit.fn_def.clone()));
-                }
-            }
-        }
-        tracing::error!("contract {} method {} not registed", contract_id, method_name);
-        Err(ErrorObjectOwned::owned(
-            1,
-            "get_fn_id error",
-            Some(format!("contract {} method {} not registed", contract_id, method_name)),
-        ))
+        let contract_code = self
+            .rpc_provider
+            .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })
+            .await
+            .map_err(|err| ErrorObjectOwned::owned(1, "get contract code error", Some(err.to_string())))?;
+        self.circuit_manager
+            .resolve_contract_function_by_method_name(contract_id, &contract_code, method_name)
+            .await
+            .map_err(|err| ErrorObjectOwned::owned(1, "get_fn_id error", Some(err.to_string())))
     }
 
     async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> Result<QCommonCircuitData<F>, ErrorObjectOwned> {
         tracing::info!("🔔 get_contract_method_common_data contract_id: {}, fn_id: {}", contract_id, fn_id);
-        if self.circuit_manager.contract_circuits.get(&contract_id).is_none() {
+        if self
+            .circuit_manager
+            .contract_circuits
+            .get(&(contract_id, fn_id))
+            .is_none()
+        {
             tracing::warn!("contract {} is not registered, can not get fn id", contract_id);
             tracing::warn!("register contract {} first", contract_id);
             self.register_contract_circuits_inner(contract_id)
@@ -533,15 +506,7 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                 .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
         }
 
-        if let Some(circuits_arc) = self.circuit_manager.contract_circuits.get(&contract_id) {
-            let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
-            let circuit = circuits.get(fn_id as usize).ok_or_else(|| {
-                ErrorObjectOwned::owned(
-                    1,
-                    format!("contract {} method {} is not found", contract_id, fn_id),
-                    Some(format!("fn_id: {}", fn_id)),
-                )
-            })?;
+        if let Some(circuit) = self.circuit_manager.contract_circuits.get(&(contract_id, fn_id)) {
             tracing::info!(
                 "get contract {} method {} common data, fingerprint: {}",
                 contract_id,
@@ -567,22 +532,19 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         input: DapenContractFunctionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_contract_call contract_id: {}, fn_id: {}", contract_id, fn_id);
-        if self.circuit_manager.contract_circuits.get(&contract_id).is_none() {
+        if self
+            .circuit_manager
+            .contract_circuits
+            .get(&(contract_id, fn_id))
+            .is_none()
+        {
             tracing::warn!("contract {} is not registered, can not get fn id", contract_id);
             tracing::warn!("register contract {} first", contract_id);
             self.register_contract_circuits_inner(contract_id)
                 .await
                 .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
         }
-        if let Some(fn_circuits_arc) = self.circuit_manager.contract_circuits.get(&contract_id) {
-            let fn_circuits = &**fn_circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
-            let fn_circuit = fn_circuits.get(fn_id as usize).ok_or_else(|| {
-                ErrorObjectOwned::owned(
-                    1,
-                    format!("contract {} method {} is not found", contract_id, fn_id),
-                    Some(format!("fn_id: {}", fn_id)),
-                )
-            })?;
+        if let Some(fn_circuit) = self.circuit_manager.contract_circuits.get(&(contract_id, fn_id)) {
 
             let input = input.clone();
             let fn_circuit = fn_circuit.clone();
@@ -1083,4 +1045,5 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             )
         })
     }
+
 }

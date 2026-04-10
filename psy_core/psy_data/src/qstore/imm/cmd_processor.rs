@@ -13,6 +13,7 @@ use crate::{
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats},
         contract::{ContractCodeDefinition, PsyContractLeaf},
+        imt_contract_state::IMTContractStateLeaf,
         user::PsyUserLeaf,
     },
 };
@@ -155,6 +156,64 @@ pub struct DPNContractLeafWitness<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNCheckpointGlobalStateRootsWitness<F: RichField> {
+    pub checkpoint_state_roots: PsyCheckpointGlobalStateRoots<F>,
+    pub checkpoint_leaf_stats: PsyCheckpointLeafStats<F>,
+    pub checkpoint_historical_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNIMTContainsWitness<F: RichField> {
+    pub exists: bool,
+    pub leaf_preimage: IMTContractStateLeaf<F>,
+    pub merkle_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNIMTReadWitness<F: RichField> {
+    pub leaf_preimage: IMTContractStateLeaf<F>,
+    pub merkle_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNIMTSelfUserExternalReadWitness<F: RichField> {
+    pub contract_tree_proof: MerkleProofCore<QHashOut<F>>,
+    pub state_slot_proof: MerkleProofCore<QHashOut<F>>,
+    pub leaf_preimage: IMTContractStateLeaf<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNIMTOtherUserReadWitness<F: RichField> {
+    pub user_leaf_witness: DPNReadOtherUserLeafMerkleProof<F>,
+    pub contract_state_proof: MerkleProofCore<QHashOut<F>>,
+    pub state_slot_proof: MerkleProofCore<QHashOut<F>>,
+    pub leaf_preimage: IMTContractStateLeaf<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNIMTSetWitness<F: RichField> {
+    pub delta_merkle_proofs: Vec<DeltaMerkleProofCore<QHashOut<F>>>,
+    pub is_insert: bool,
+    pub insert_has_predecessor: bool,
+    pub old_leaf: IMTContractStateLeaf<F>,
+    pub new_leaf: IMTContractStateLeaf<F>,
+    pub predecessor_old_leaf: IMTContractStateLeaf<F>,
+    pub predecessor_new_leaf: IMTContractStateLeaf<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub enum DPNStateCmdWitness<F: RichField> {
     MerkleProof(MerkleProofCore<QHashOut<F>>),
     DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),
@@ -163,8 +222,14 @@ pub enum DPNStateCmdWitness<F: RichField> {
     ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof<F>),
     InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness<F>),
     CheckpointLeafStats(DPNCheckpointLeafStatsWitness<F>),
+    CheckpointGlobalStateRoots(DPNCheckpointGlobalStateRootsWitness<F>),
     ClearEntireTree(DPNClearEntireTreeWitness<F>),
     ContractLeaf(DPNContractLeafWitness<F>),
+    IMTSet(DPNIMTSetWitness<F>),
+    IMTContains(DPNIMTContainsWitness<F>),
+    IMTRead(DPNIMTReadWitness<F>),
+    IMTSelfUserExternalRead(DPNIMTSelfUserExternalReadWitness<F>),
+    IMTOtherUserRead(DPNIMTOtherUserReadWitness<F>),
     TargetArray(Vec<F>),
     TargetArray2D(Vec<Vec<F>>),
 }
@@ -244,6 +309,15 @@ impl<F: RichField> DPNStateCmdWitness<F> {
             ),
         }
     }
+    pub fn get_checkpoint_global_state_roots_ref(&self) -> &DPNCheckpointGlobalStateRootsWitness<F> {
+        match &self {
+            DPNStateCmdWitness::CheckpointGlobalStateRoots(witness) => witness,
+            _ => panic!(
+                "get_checkpoint_global_state_roots_ref expects witness type to be CheckpointGlobalStateRoots, but got {:?}",
+                &self
+            ),
+        }
+    }
     pub fn get_clear_entire_tree_ref(&self) -> &DPNClearEntireTreeWitness<F> {
         match &self {
             DPNStateCmdWitness::ClearEntireTree(witness) => witness,
@@ -257,6 +331,39 @@ impl<F: RichField> DPNStateCmdWitness<F> {
         match &self {
             DPNStateCmdWitness::ContractLeaf(witness) => witness,
             _ => panic!("get_contract_leaf_ref expects witness type to be ContractLeaf, but got {:?}", &self),
+        }
+    }
+    pub fn get_imt_contains_ref(&self) -> &DPNIMTContainsWitness<F> {
+        match &self {
+            DPNStateCmdWitness::IMTContains(w) => w,
+            _ => panic!("get_imt_contains_ref expects IMTContains, but got {:?}", &self),
+        }
+    }
+    pub fn get_imt_set_ref(&self) -> &DPNIMTSetWitness<F> {
+        match &self {
+            DPNStateCmdWitness::IMTSet(w) => w,
+            _ => panic!("get_imt_set_ref expects IMTSet, but got {:?}", &self),
+        }
+    }
+    pub fn get_imt_read_ref(&self) -> &DPNIMTReadWitness<F> {
+        match &self {
+            DPNStateCmdWitness::IMTRead(w) => w,
+            _ => panic!("get_imt_read_ref expects IMTRead, but got {:?}", &self),
+        }
+    }
+    pub fn get_imt_self_user_external_read_ref(&self) -> &DPNIMTSelfUserExternalReadWitness<F> {
+        match &self {
+            DPNStateCmdWitness::IMTSelfUserExternalRead(w) => w,
+            _ => panic!(
+                "get_imt_self_user_external_read_ref expects IMTSelfUserExternalRead, but got {:?}",
+                &self
+            ),
+        }
+    }
+    pub fn get_imt_other_user_read_ref(&self) -> &DPNIMTOtherUserReadWitness<F> {
+        match &self {
+            DPNStateCmdWitness::IMTOtherUserRead(w) => w,
+            _ => panic!("get_imt_other_user_read_ref expects IMTOtherUserRead, but got {:?}", &self),
         }
     }
     pub fn get_merkle_proof(self) -> MerkleProofCore<QHashOut<F>> {
@@ -365,6 +472,26 @@ pub trait PsyReadCommandProcessorSync<F: RichField> {
     async fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>>;
     async fn resolve_get_block_state(&self, input: &QSRCmdGetBlockState) -> anyhow::Result<PsyBlockState>;
     async fn resolve_get_latest_block_state(&self) -> anyhow::Result<PsyBlockState>;
+
+    async fn resolve_contract_state_imt_get_leaf_preimage(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafPreimage,
+    ) -> anyhow::Result<crate::qdata::imt_contract_state::IMTContractStateLeaf<F>>;
+
+    async fn resolve_contract_state_imt_get_leaf_index_for_key(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafIndexForKey,
+    ) -> anyhow::Result<u64>;
+
+    async fn resolve_contract_state_imt_find_predecessor(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdFindPredecessor,
+    ) -> anyhow::Result<(u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)>;
+
+    async fn resolve_contract_state_imt_get_next_append_index(
+        &self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetNextAppendIndex,
+    ) -> anyhow::Result<u64>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -379,6 +506,26 @@ pub trait PsyReadCommandProcessorSyncMut<F: RichField> {
     async fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>>;
     async fn resolve_get_block_state_mut(&mut self, input: &QSRCmdGetBlockState) -> anyhow::Result<PsyBlockState>;
     async fn resolve_get_latest_block_state_mut(&mut self) -> anyhow::Result<PsyBlockState>;
+
+    async fn resolve_contract_state_imt_get_leaf_preimage_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafPreimage,
+    ) -> anyhow::Result<crate::qdata::imt_contract_state::IMTContractStateLeaf<F>>;
+
+    async fn resolve_contract_state_imt_get_leaf_index_for_key_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetLeafIndexForKey,
+    ) -> anyhow::Result<u64>;
+
+    async fn resolve_contract_state_imt_find_predecessor_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdFindPredecessor,
+    ) -> anyhow::Result<(u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)>;
+
+    async fn resolve_contract_state_imt_get_next_append_index_mut(
+        &mut self,
+        input: &crate::qstore::imm::cmd::QSRIMTCmdGetNextAppendIndex,
+    ) -> anyhow::Result<u64>;
 }
 /*
  */

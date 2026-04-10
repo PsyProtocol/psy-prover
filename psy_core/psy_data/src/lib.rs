@@ -11,3 +11,4 @@ pub mod qstore;
 pub mod qsync;
 pub mod traits;
 pub mod ups;
+pub mod privacy;

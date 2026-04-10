@@ -527,3 +527,224 @@ pub struct GetPsySdcFingerprintArgs {
     #[clap(long, default_value = "sdc.json")]
     pub sdc_path: String,
 }
+
+// ─── PSY Compiler CLI Args ──────────────────────────────────────────────────
+
+#[derive(Clone, Args)]
+pub struct CompileArgs {
+    /// Path to .psy.rs source file or crate root directory
+    #[clap(long)]
+    pub source: String,
+
+    /// Output directory for compiled artifacts
+    #[clap(long)]
+    pub output_dir: Option<String>,
+
+    /// Only generate ABI JSON (skip code generation)
+    #[clap(long)]
+    pub abi_only: bool,
+
+    /// Type-check only (no code generation)
+    #[clap(long)]
+    pub check: bool,
+
+    /// Treat source as a multi-file crate (root file = lib.psy.rs)
+    #[clap(long)]
+    pub is_crate: bool,
+}
+
+#[derive(Clone, Args)]
+pub struct CompileAndDeployArgs {
+    /// Path to .psy.rs source file or crate root directory
+    #[clap(long)]
+    pub source: String,
+
+    #[clap(env, long, default_value = "config.json")]
+    pub rpc_config: String,
+
+    #[clap(long, env)]
+    pub private_key: String,
+
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
+
+    #[clap(long, env)]
+    pub fingerprint: Option<String>,
+
+    /// Output directory for compiled artifacts
+    #[clap(long)]
+    pub output_dir: Option<String>,
+
+    /// Compile only, don't deploy to coordinator
+    #[clap(long)]
+    pub dry_run: bool,
+
+    /// Treat source as a multi-file crate
+    #[clap(long)]
+    pub is_crate: bool,
+}
+
+#[derive(Clone, Args)]
+pub struct SimulateArgs {
+    /// Contract method name to simulate
+    #[clap(long)]
+    pub method: String,
+
+    /// Input values (felts) for the method
+    #[clap(long)]
+    pub inputs: Vec<u64>,
+
+    /// Path to .psy.rs source file (compile on-the-fly)
+    #[clap(long)]
+    pub source: Option<String>,
+
+    /// Path to pre-compiled circuit_defs.json
+    #[clap(long)]
+    pub circuit_defs_path: Option<String>,
+
+    /// Path to ABI JSON file (for field name resolution)
+    #[clap(long)]
+    pub abi_path: Option<String>,
+
+    /// Executing user ID
+    #[clap(long, default_value = "1")]
+    pub user_id: u64,
+
+    /// Contract ID
+    #[clap(long)]
+    pub contract_id: Option<u64>,
+
+    /// Checkpoint ID
+    #[clap(long)]
+    pub checkpoint_id: Option<u64>,
+
+    /// Nonce
+    #[clap(long)]
+    pub nonce: Option<u64>,
+
+    /// Output format: json, table, minimal
+    #[clap(long)]
+    pub format: Option<String>,
+
+    /// Treat source as a multi-file crate
+    #[clap(long)]
+    pub is_crate: bool,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct PrivateClaimArgs {
+    #[clap(env, long, default_value = "config.json")]
+    pub rpc_config: String,
+    #[clap(long, short = 'p')]
+    pub private_key: String,
+    #[clap(long, default_value = "0")]
+    pub contract_id: u64,
+    #[clap(long)]
+    pub note_proof: Option<String>,
+    #[clap(long)]
+    pub nostr_secret_key: Option<String>,
+    #[clap(long, default_value = "wss://relay.nostr.band")]
+    pub nostr_relay: String,
+    #[clap(long, default_value = "20")]
+    pub nostr_timeout_secs: u64,
+    #[clap(long, default_value_t = 0)]
+    pub random0: u64,
+    #[clap(long, default_value_t = 0)]
+    pub random1: u64,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct PrivateTransferArgs {
+    #[clap(env, long, default_value = "config.json")]
+    pub rpc_config: String,
+    #[clap(long, short = 'p')]
+    pub private_key: String,
+    #[clap(long, default_value = "0")]
+    pub contract_id: u64,
+    #[clap(long, default_value = "zk")]
+    pub sign_type: SignType,
+    #[clap(long)]
+    pub amount: u64,
+    #[clap(long, alias = "owner")]
+    pub receiver: Option<String>,
+    #[clap(long, default_value = "8388609")]
+    pub note_root_slot: u64,
+    #[clap(long, default_value_t = u64::MAX)]
+    pub checkpoint_id: u64,
+    #[clap(long, default_value = "note_proof.json")]
+    pub output: String,
+    #[clap(long)]
+    pub nostr_secret_key: Option<String>,
+    #[clap(long)]
+    pub nostr_recipient_pubkey: Option<String>,
+    #[clap(long, default_value = "wss://relay.nostr.band")]
+    pub nostr_relay: String,
+}
+
+#[derive(Clone, Args)]
+pub struct ClaimDepositArgs {
+    #[clap(env, long, default_value = "config.json")]
+    pub rpc_config: String,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
+
+    // DepositLeaf fields (for leaf hash recomputation & verification)
+    #[arg(long, env)]
+    pub depositor: String,
+    // #[arg(long, env)]
+    // pub l2_recipient: String,
+    #[arg(long, env)]
+    pub token_l1_address: String,
+    #[arg(long, env)]
+    pub amount: u64,
+    #[arg(long, env)]
+    pub source_chain_id: u64,
+    #[arg(long, env)]
+    pub deposit_index: u64,
+    #[arg(long, env)]
+    pub nonce: u64,
+
+    // Signature verification fields
+    #[arg(long, env)]
+    pub user_id: u64,
+    #[arg(long, env)]
+    pub public_key: Option<String>,
+    #[arg(long, env)]
+    pub signature_proof: Option<String>,
+}
+
+#[derive(Clone, Args)]
+pub struct WithdrawArgs {
+    #[clap(env, long, default_value = "config.json")]
+    pub rpc_config: String,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
+
+    /// Destination L1 chain ID
+    #[arg(long, env)]
+    pub destination_chain_id: u64,
+    /// L1 token contract address (32-byte hex, zero-padded)
+    #[arg(long, env)]
+    pub token_address: String,
+    /// Amount to withdraw
+    #[arg(long, env)]
+    pub amount: u64,
+    /// L1 recipient address (32-byte hex, zero-padded)
+    #[arg(long, env)]
+    pub recipient: String,
+    /// User-chosen nonce (unique per destination chain)
+    #[arg(long, env)]
+    pub nonce: u64,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct DeriveNoteOwnerArgs {
+    #[clap(env, long, default_value = "config.json")]
+    pub rpc_config: String,
+    #[clap(long, short = 'p')]
+    pub private_key: String,
+    #[clap(long, default_value_t = 0)]
+    pub random0: u64,
+    #[clap(long, default_value_t = 0)]
+    pub random1: u64,
+}

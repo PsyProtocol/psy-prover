@@ -1,4 +1,5 @@
 use plonky2::hash::hash_types::RichField;
+use psy_common::data::qhashout::QHashOut;
 
 //use psy_config::network_constants::PsyTreeConfig;
 use crate::{
@@ -50,6 +51,32 @@ pub trait QMetaDataStoreReaderSync<F: RichField>: Send + Sync {
         )
         .await
     }
+
+    async fn contract_state_imt_get_leaf_preimage(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        leaf_index: u64,
+    ) -> anyhow::Result<crate::qdata::imt_contract_state::IMTContractStateLeaf<F>>;
+
+    async fn contract_state_imt_get_leaf_index_for_key(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        key: &QHashOut<F>,
+    ) -> anyhow::Result<u64>;
+
+    async fn contract_state_imt_find_predecessor(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u64,
+        key: &QHashOut<F>,
+    ) -> anyhow::Result<(u64, crate::qdata::imt_contract_state::IMTContractStateLeaf<F>)>;
+
+    async fn contract_state_imt_get_next_append_index(&self, user_id: u64, contract_id: u64) -> anyhow::Result<u64>;
 }
 
 pub trait QMetaDataStoreWriterSync<F: RichField> {

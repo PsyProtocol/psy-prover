@@ -107,9 +107,16 @@ register-random-user:
 deploy-contract:
 	@echo "Deploying contracts..."
 	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --abi-path ${PROJECT_DIR}/token/target/token.abi.json --is-deploy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/token.json --is-deploy
 	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --abi-path ${PROJECT_DIR}/token/target/token.abi.json --is-deploy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PWD}/token.json --is-deploy
+
+get-deploy-contract-cmd:
+	@echo "Deploying contracts..."
+	@echo "USER0 deploying token contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/token.json --output-path ./genesis_contracts.json
+	@echo "USER1 deploying token contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PWD}/token.json --output-path ./genesis_contracts.json
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
@@ -118,10 +125,6 @@ mint:
 	@echo "All users minting 1000 tokens..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call --keystore-path .wallets/treasury.json --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call --keystore-path .wallets/treasury.json --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
 
 transfer:
 	@echo "USER0 transferring 250 to USER1..."
@@ -143,6 +146,16 @@ return-back:
 
 claim-rewards-v2:
 	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-reward-v2 --private-key ${USER0_PRIVATE_KEY} --jobs-file realm_worker_0.backup
+
+withdraw:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli withdraw \
+		-p ${CURRENT_USER_PRIVATE_KEY} \
+		--destination-chain-id ${WITHDRAW_DEST_CHAIN_ID} \
+		--token-address ${WITHDRAW_TOKEN_ADDRESS} \
+		--amount ${WITHDRAW_AMOUNT} \
+		--recipient ${WITHDRAW_RECIPIENT} \
+		--nonce ${WITHDRAW_NONCE} \
+		--sign-type ${SIGN_TYPE}
 
 # Unified RPC commands using psy_user_cli automatic routing
 get-slot-value:

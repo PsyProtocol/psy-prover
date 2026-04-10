@@ -1,7 +1,7 @@
 use plonky2::{hash::hash_types::RichField, iop::witness::Witness};
 use psy_common::data::qhashout::QHashOut;
-use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use psy_data::qdata::user::PsyUserLeaf;
+use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use psy_vm::{
     dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition},
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyCmdWithInputAndWitness},
@@ -53,24 +53,23 @@ impl StateReaderGadget {
         ck: &StateCommandCacheKey,
         witness_value: &DeltaMerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        let reader_ref_key = self.gadget_map.get(ck);
-        if reader_ref_key.is_some() {
-            let reader_ref_key = reader_ref_key.unwrap().to_owned();
-            match reader_ref_key.gadget_type {
-                StateReaderReferenceKeyType::DeltaMerkleProof => {
-                    self.delta_merkle_proofs[reader_ref_key.gadget_index].set_witness::<W, F>(
-                        witness,
-                        F::from_noncanonical_u64(witness_value.index),
-                        witness_value.old_value,
-                        witness_value.new_value,
-                        &witness_value.siblings,
-                    )?;
-                }
-                v => anyhow::bail!(
-                    "set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}",
-                    v
-                ),
+        let Some(reader_ref_key) = self.gadget_map.get(ck).copied() else {
+            anyhow::bail!("missing state reader key for dmp witness: {:?}", ck);
+        };
+        match reader_ref_key.gadget_type {
+            StateReaderReferenceKeyType::DeltaMerkleProof => {
+                self.delta_merkle_proofs[reader_ref_key.gadget_index].set_witness::<W, F>(
+                    witness,
+                    F::from_noncanonical_u64(witness_value.index),
+                    witness_value.old_value,
+                    witness_value.new_value,
+                    &witness_value.siblings,
+                )?;
             }
+            v => anyhow::bail!(
+                "set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}",
+                v
+            ),
         }
         Ok(())
     }
@@ -80,23 +79,44 @@ impl StateReaderGadget {
         ck: &StateCommandCacheKey,
         witness_value: &MerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        let reader_ref_key = self.gadget_map.get(ck);
-        if reader_ref_key.is_some() {
-            let reader_ref_key = reader_ref_key.unwrap().to_owned();
-            match reader_ref_key.gadget_type {
-                StateReaderReferenceKeyType::MerkleProof => {
-                    self.merkle_proofs[reader_ref_key.gadget_index].set_witness_generic::<W, F>(
-                        witness,
-                        F::from_noncanonical_u64(witness_value.index),
-                        witness_value.value,
-                        &witness_value.siblings,
-                    )?;
-                }
-                v => anyhow::bail!(
-                    "set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}",
-                    v
-                ),
+        let Some(reader_ref_key) = self.gadget_map.get(ck).copied() else {
+            anyhow::bail!("missing state reader key for mp witness: {:?}", ck);
+        };
+        match reader_ref_key.gadget_type {
+            StateReaderReferenceKeyType::MerkleProof => {
+                self.merkle_proofs[reader_ref_key.gadget_index].set_witness_generic::<W, F>(
+                    witness,
+                    F::from_noncanonical_u64(witness_value.index),
+                    witness_value.value,
+                    &witness_value.siblings,
+                )?;
             }
+            v => anyhow::bail!(
+                "set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}",
+                v
+            ),
+        }
+        Ok(())
+    }
+    fn set_witness_for_key_imt_contains_mp<W: Witness<F>, F: RichField>(
+        &self,
+        witness: &mut W,
+        ck: &StateCommandCacheKey,
+        witness_value: &MerkleProofCore<QHashOut<F>>,
+    ) -> anyhow::Result<()> {
+        let Some(reader_ref_key) = self.gadget_map.get(ck).copied() else {
+            anyhow::bail!("missing state reader key for imt contains witness: {:?}", ck);
+        };
+        match reader_ref_key.gadget_type {
+            StateReaderReferenceKeyType::IMTContains => {
+                self.imt_contains_proofs[reader_ref_key.gadget_index].set_witness_generic::<W, F>(
+                    witness,
+                    F::from_noncanonical_u64(witness_value.index),
+                    witness_value.value,
+                    &witness_value.siblings,
+                )?;
+            }
+            v => anyhow::bail!("set_witness_for_key_imt_contains_mp expects IMTContains gadget, but got {:?}", v),
         }
         Ok(())
     }
@@ -207,13 +227,13 @@ impl StateReaderGadget {
                 }
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
-                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(c.contract_id, self.contract_call_epoch);
+                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(c.contract_id, wb_state.contract_call_epoch);
 
                 let proofs = cmd_witness.witness.get_merkle_proof_array_ref();
                 self.set_witness_for_key_mp(witness, &read_root_ck, &proofs[0])?;
 
                 let contract_state_tree_ck =
-                    StateCommandCacheKey::new_read_self_user_external_contract_slot(c.contract_id, c.slot_index, self.contract_call_epoch);
+                    StateCommandCacheKey::new_read_self_user_external_contract_slot(c.contract_id, c.slot_index, wb_state.contract_call_epoch);
 
                 self.set_witness_for_key_mp(witness, &contract_state_tree_ck, &proofs[1])?;
             }
@@ -230,7 +250,7 @@ impl StateReaderGadget {
                 self.set_witness_for_key_mp(witness, &contract_state_tree_ck, &proofs[1])?;
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => {
-                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(c.contract_id, self.contract_call_epoch);
+                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(c.contract_id, wb_state.contract_call_epoch);
 
                 let proofs = cmd_witness.witness.get_merkle_proof_array_ref();
                 self.set_witness_for_key_mp(witness, &read_root_ck, &proofs[0])?;
@@ -239,7 +259,7 @@ impl StateReaderGadget {
                     let contract_state_tree_ck = StateCommandCacheKey::new_read_self_user_external_contract_range(
                         c.contract_id,
                         c.sub_slot_index,
-                        self.contract_call_epoch,
+                        wb_state.contract_call_epoch,
                         c.length,
                         i as u64,
                     );
@@ -349,13 +369,38 @@ impl StateReaderGadget {
                     }
                 }
             }
+            DPNStateCmd::GetGlobalStateRoots(c) => {
+                let ck = StateCommandCacheKey::new_get_checkpoint_stats(c.checkpoint_id);
+
+                let Some(ref_key) = self.gadget_map.get(&ck).copied() else {
+                    anyhow::bail!("missing state reader key for GetGlobalStateRoots witness: {:?}", ck);
+                };
+                match ref_key.gadget_type {
+                    StateReaderReferenceKeyType::CheckpointStats => {
+                        let index = ref_key.gadget_index;
+
+                        let global_roots_witness = cmd_witness.witness.get_checkpoint_global_state_roots_ref();
+
+                        self.checkpoint_stats_requests[index].set_witness(witness, &global_roots_witness.checkpoint_leaf_stats)?;
+                        self.checkpoint_state_roots_requests[index].set_witness(witness, &global_roots_witness.checkpoint_state_roots)?;
+
+                        self.historical_proofs[index].set_witness_generic::<W, F>(
+                            witness,
+                            F::from_noncanonical_u64(global_roots_witness.checkpoint_historical_proof.index),
+                            global_roots_witness.checkpoint_historical_proof.value,
+                            &global_roots_witness.checkpoint_historical_proof.siblings,
+                        )?;
+                    }
+                    v => anyhow::bail!("GetGlobalStateRoots expects CheckpointStats reference key type, but got {:?}", v),
+                }
+            }
             DPNStateCmd::ClearEntireTree(c) => {
                 let clear_tree_witness = cmd_witness.witness.get_clear_entire_tree_ref();
 
-                if let Some(reader_ref_key) = self
-                    .gadget_map
-                    .get(&StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition, self.write_epoch))
-                {
+                if let Some(reader_ref_key) = self.gadget_map.get(&StateCommandCacheKey::new_clear_entire_tree_with_condition(
+                    c.condition,
+                    wb_state.write_epoch,
+                )) {
                     match reader_ref_key.gadget_type {
                         StateReaderReferenceKeyType::ClearEntireTree => {
                             let index = reader_ref_key.gadget_index;
@@ -371,6 +416,150 @@ impl StateReaderGadget {
 
                 wb_state.inc_write_epoch();
             }
+            DPNStateCmd::SetIMTContractStateValue(c) => {
+                let ck = StateCommandCacheKey::new_write_imt_current_contract(c.condition, 0, wb_state.write_epoch);
+                let imt_set_witness = cmd_witness.witness.get_imt_set_ref();
+
+                let Some(reader_ref_key) = self.gadget_map.get(&ck).copied() else {
+                    anyhow::bail!("missing state reader key for imt set witness: {:?}", ck);
+                };
+                match reader_ref_key.gadget_type {
+                    StateReaderReferenceKeyType::IMTSet => {
+                        let index = reader_ref_key.gadget_index;
+                        let gadget = &self.imt_set_requests[index];
+
+                        witness.set_target(gadget.is_insert.target, if imt_set_witness.is_insert { F::ONE } else { F::ZERO })?;
+                        witness.set_target(
+                            gadget.insert_has_predecessor.target,
+                            if imt_set_witness.insert_has_predecessor { F::ONE } else { F::ZERO },
+                        )?;
+
+                        gadget.update_old_leaf.set_witness(witness, &imt_set_witness.old_leaf)?;
+                        gadget.update_new_leaf.set_witness(witness, &imt_set_witness.new_leaf)?;
+                        gadget
+                            .update_delta_proof
+                            .set_witness_core_proof_q(witness, &imt_set_witness.delta_merkle_proofs[0])?;
+
+                        if imt_set_witness.delta_merkle_proofs.len() < 2 {
+                            anyhow::bail!(
+                                "IMT set witness expects at least 2 delta merkle proofs, got {}",
+                                imt_set_witness.delta_merkle_proofs.len()
+                            );
+                        }
+                        let predecessor_proof = &imt_set_witness.delta_merkle_proofs[0];
+                        let new_leaf_proof = &imt_set_witness.delta_merkle_proofs[1];
+
+                        gadget
+                            .insert_predecessor_old_leaf
+                            .set_witness(witness, &imt_set_witness.predecessor_old_leaf)?;
+                        gadget
+                            .insert_predecessor_new_leaf
+                            .set_witness(witness, &imt_set_witness.predecessor_new_leaf)?;
+                        gadget.insert_new_leaf.set_witness(witness, &imt_set_witness.new_leaf)?;
+                        gadget
+                            .insert_predecessor_delta_proof
+                            .set_witness_core_proof_q(witness, predecessor_proof)?;
+                        gadget.insert_new_leaf_delta_proof.set_witness_core_proof_q(witness, new_leaf_proof)?;
+                    }
+                    v => anyhow::bail!("SetIMTContractStateValue expects IMTSet reference key type, but got {:?}", v),
+                }
+                wb_state.inc_write_epoch();
+            }
+            DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(c) => {
+                let ck = StateCommandCacheKey::new_read_imt_current_contract(c.key, wb_state.write_epoch);
+                let read_witness = cmd_witness.witness.get_imt_read_ref();
+                let Some(reader_ref_key) = self.gadget_map.get(&ck).copied() else {
+                    anyhow::bail!("missing state reader key for imt current read witness: {:?}", ck);
+                };
+                match reader_ref_key.gadget_type {
+                    StateReaderReferenceKeyType::IMTRead => {
+                        let gadget = &self.imt_read_requests[reader_ref_key.gadget_index];
+                        gadget.merkle_proof.set_witness_generic::<W, F>(
+                            witness,
+                            F::from_noncanonical_u64(read_witness.merkle_proof.index),
+                            read_witness.merkle_proof.value,
+                            &read_witness.merkle_proof.siblings,
+                        )?;
+                        gadget.leaf.set_witness(witness, &read_witness.leaf_preimage)?;
+                    }
+                    v => anyhow::bail!("IMT current read expects IMTRead key type, but got {:?}", v),
+                }
+            }
+            DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(c) => {
+                let ck = StateCommandCacheKey::new_read_imt_contains_current_contract(c.key, wb_state.write_epoch);
+                let contains_witness = cmd_witness.witness.get_imt_contains_ref();
+                self.set_witness_for_key_imt_contains_mp(witness, &ck, &contains_witness.merkle_proof)?;
+                let Some(reader_ref_key) = self.gadget_map.get(&ck).copied() else {
+                    anyhow::bail!("missing state reader key for imt contains witness: {:?}", ck);
+                };
+                match reader_ref_key.gadget_type {
+                    StateReaderReferenceKeyType::IMTContains => {
+                        let index = reader_ref_key.gadget_index;
+                        self.imt_contains_leaf_requests[index].set_witness(witness, &contains_witness.leaf_preimage)?;
+                        witness.set_target(
+                            self.imt_contains_exists_targets[index],
+                            if contains_witness.exists { F::ONE } else { F::ZERO },
+                        )?;
+                    }
+                    v => anyhow::bail!("IMT contains expects IMTContains key type, but got {:?}", v),
+                }
+            }
+            DPNStateCmd::GetSelfUserExternalIMTContractStateValue(c) => {
+                let read_witness = cmd_witness.witness.get_imt_self_user_external_read_ref();
+                let uct_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(c.contract_id, wb_state.contract_call_epoch);
+                self.set_witness_for_key_mp(witness, &uct_ck, &read_witness.contract_tree_proof)?;
+                let imt_ck = StateCommandCacheKey::new_read_imt_self_user_external_contract(c.contract_id, c.key, wb_state.contract_call_epoch);
+                let Some(reader_ref_key) = self.gadget_map.get(&imt_ck).copied() else {
+                    anyhow::bail!("missing state reader key for imt external read witness: {:?}", imt_ck);
+                };
+                match reader_ref_key.gadget_type {
+                    StateReaderReferenceKeyType::IMTExternalRead => {
+                        let gadget = &self.imt_external_read_requests[reader_ref_key.gadget_index];
+                        gadget.contract_tree_proof.set_witness_generic::<W, F>(
+                            witness,
+                            F::from_noncanonical_u64(read_witness.contract_tree_proof.index),
+                            read_witness.contract_tree_proof.value,
+                            &read_witness.contract_tree_proof.siblings,
+                        )?;
+                        gadget.state_slot_proof.set_witness_generic::<W, F>(
+                            witness,
+                            F::from_noncanonical_u64(read_witness.state_slot_proof.index),
+                            read_witness.state_slot_proof.value,
+                            &read_witness.state_slot_proof.siblings,
+                        )?;
+                        gadget.leaf.set_witness(witness, &read_witness.leaf_preimage)?;
+                    }
+                    v => anyhow::bail!("IMT external read expects IMTExternalRead key type, but got {:?}", v),
+                }
+            }
+            DPNStateCmd::GetOtherUserIMTContractStateValue(c) => {
+                let read_witness = cmd_witness.witness.get_imt_other_user_read_ref();
+
+                let user_tree_ck = StateCommandCacheKey::new_read_other_user_leaf_hash(c.user_id);
+                let user_leaf_ck = StateCommandCacheKey::new_read_other_user_leaf(c.user_id);
+                let uct_ck = StateCommandCacheKey::new_read_other_user_contract_root(c.user_id, c.contract_id);
+                let imt_ck = StateCommandCacheKey::new_read_imt_other_user_contract(c.user_id, c.contract_id, c.key, wb_state.write_epoch);
+
+                self.set_witness_for_key_mp(witness, &user_tree_ck, &read_witness.user_leaf_witness.user_tree_proof)?;
+                self.set_witness_for_key_user_leaf(witness, &user_leaf_ck, &read_witness.user_leaf_witness.user_leaf)?;
+                self.set_witness_for_key_mp(witness, &uct_ck, &read_witness.contract_state_proof)?;
+                let Some(reader_ref_key) = self.gadget_map.get(&imt_ck).copied() else {
+                    anyhow::bail!("missing state reader key for imt other-user read witness: {:?}", imt_ck);
+                };
+                match reader_ref_key.gadget_type {
+                    StateReaderReferenceKeyType::IMTOtherUserRead => {
+                        let gadget = &self.imt_other_user_read_requests[reader_ref_key.gadget_index];
+                        gadget.state_slot_proof.set_witness_generic::<W, F>(
+                            witness,
+                            F::from_noncanonical_u64(read_witness.state_slot_proof.index),
+                            read_witness.state_slot_proof.value,
+                            &read_witness.state_slot_proof.siblings,
+                        )?;
+                        gadget.leaf.set_witness(witness, &read_witness.leaf_preimage)?;
+                    }
+                    v => anyhow::bail!("IMT other-user read expects IMTOtherUserRead key type, but got {:?}", v),
+                }
+            }
         };
         Ok(())
     }
@@ -384,7 +573,8 @@ impl StateReaderGadget {
 
         for (dsc, ciw) in fn_def.state_commands.iter().zip(input.cmd_witnesses.iter()) {
             tracing::debug!(
-                "🔧 set_witness dsc: {}, ciw: {}",
+                target: "state_reader_witness_dump",
+                "set_witness dsc: {}, ciw: {}",
                 serde_json::to_string_pretty(dsc).unwrap(),
                 serde_json::to_string_pretty(ciw).unwrap()
             );

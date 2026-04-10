@@ -11,6 +11,7 @@ use crate::dpn::ops::context_trait::{ContextFelt, ToFelts};
 const PM_REWARD_COMMITMENT_SIZE: usize = 12; // 3 roots * 4 field elements each
 const DA_CHALLENGE_WINDOW: usize = 14; // Matching psy_config::network_constants::DA_CHALLENGE_WINDOW
 const CONTRACT_LEAF_FELT_SIZE: usize = 9;
+const GLOBAL_STATE_ROOTS_FELT_SIZE: usize = 20;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
 #[ts(export, concrete(T = GoldilocksField))]
@@ -453,6 +454,18 @@ impl<T> DPNStateCmdGetContractLeaf<T> {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdGetGlobalStateRoots<T> {
+    pub checkpoint_id: T,
+}
+
+impl<T> DPNStateCmdGetGlobalStateRoots<T> {
+    pub fn new(checkpoint_id: T) -> Self {
+        Self { checkpoint_id }
+    }
+}
+
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdGetContractLeaf<T> {
     fn get_inputs(&self) -> Vec<T> {
         vec![self.contract_id]
@@ -464,6 +477,20 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdGetContract
 
     fn get_output_felt_size(&self) -> usize {
         CONTRACT_LEAF_FELT_SIZE
+    }
+}
+
+impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetGlobalStateRoots<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![self.checkpoint_id]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::GetGlobalStateRoots
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        GLOBAL_STATE_ROOTS_FELT_SIZE
     }
 }
 
@@ -480,6 +507,201 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetCheckpoi
         // Returns full checkpoint leaf stats: 10 base fields +
         // PM_REWARD_COMMITMENT_SIZE + DA_CHALLENGE_WINDOW
         10 + PM_REWARD_COMMITMENT_SIZE + DA_CHALLENGE_WINDOW
+    }
+}
+
+// ===========================================================================
+// IMT key-based state commands (256-bit key = 4 field elements)
+// ===========================================================================
+
+/// Set an IMT contract state value by 256-bit key.
+/// key[4] = the 256-bit storage key, value[4] = the new 256-bit value.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdSetIMTContractStateValue<T> {
+    pub condition: T,
+    pub base_offset: T,
+    pub capacity: T,
+    pub key: [T; 4],
+    pub value: [T; 4],
+}
+
+impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdSetIMTContractStateValue<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![
+            self.condition,
+            self.base_offset,
+            self.capacity,
+            self.key[0], self.key[1], self.key[2], self.key[3],
+            self.value[0], self.value[1], self.value[2], self.value[3],
+        ]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::SetIMTContractStateValue
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        8 // old_value[4] + new_value[4]
+    }
+}
+
+/// Get an IMT contract state value by 256-bit key (self user, current contract).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdGetSelfUserCurrentIMTContractStateValue<T> {
+    pub base_offset: T,
+    pub capacity: T,
+    pub key: [T; 4],
+}
+
+impl<T> DPNStateCmdGetSelfUserCurrentIMTContractStateValue<T> {
+    pub fn new(base_offset: T, capacity: T, key: [T; 4]) -> Self {
+        Self {
+            base_offset,
+            capacity,
+            key,
+        }
+    }
+}
+
+impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdGetSelfUserCurrentIMTContractStateValue<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![self.base_offset, self.capacity, self.key[0], self.key[1], self.key[2], self.key[3]]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        4 // value[4]
+    }
+}
+
+/// Get an IMT contract state value by 256-bit key (self user, external contract).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdGetSelfUserExternalIMTContractStateValue<T> {
+    pub contract_id: T,
+    pub base_offset: T,
+    pub capacity: T,
+    pub key: [T; 4],
+    pub contract_state_tree_height: u8,
+}
+
+impl<T> DPNStateCmdGetSelfUserExternalIMTContractStateValue<T> {
+    pub fn new(contract_id: T, contract_state_tree_height: u8, base_offset: T, capacity: T, key: [T; 4]) -> Self {
+        Self {
+            contract_id,
+            contract_state_tree_height,
+            base_offset,
+            capacity,
+            key,
+        }
+    }
+}
+
+impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetSelfUserExternalIMTContractStateValue<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![
+            self.contract_id,
+            self.base_offset,
+            self.capacity,
+            self.key[0],
+            self.key[1],
+            self.key[2],
+            self.key[3],
+        ]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::GetSelfUserExternalIMTContractStateValue
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        4 // value[4]
+    }
+}
+
+/// Get an IMT contract state value by 256-bit key (other user).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdGetOtherUserIMTContractStateValue<T> {
+    pub user_id: T,
+    pub contract_id: T,
+    pub base_offset: T,
+    pub capacity: T,
+    pub key: [T; 4],
+    pub contract_state_tree_height: u8,
+}
+
+impl<T> DPNStateCmdGetOtherUserIMTContractStateValue<T> {
+    pub fn new(user_id: T, contract_id: T, contract_state_tree_height: u8, base_offset: T, capacity: T, key: [T; 4]) -> Self {
+        Self {
+            user_id,
+            contract_id,
+            contract_state_tree_height,
+            base_offset,
+            capacity,
+            key,
+        }
+    }
+}
+
+impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetOtherUserIMTContractStateValue<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![
+            self.user_id,
+            self.contract_id,
+            self.base_offset,
+            self.capacity,
+            self.key[0],
+            self.key[1],
+            self.key[2],
+            self.key[3],
+        ]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::GetOtherUserIMTContractStateValue
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        4 // value[4]
+    }
+}
+
+/// Check if an IMT key exists (self user, current contract).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdContainsSelfUserCurrentIMTContractStateValue<T> {
+    pub base_offset: T,
+    pub capacity: T,
+    pub key: [T; 4],
+}
+
+impl<T> DPNStateCmdContainsSelfUserCurrentIMTContractStateValue<T> {
+    pub fn new(base_offset: T, capacity: T, key: [T; 4]) -> Self {
+        Self {
+            base_offset,
+            capacity,
+            key,
+        }
+    }
+}
+
+impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdContainsSelfUserCurrentIMTContractStateValue<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![self.base_offset, self.capacity, self.key[0], self.key[1], self.key[2], self.key[3]]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        1 // exists bool as felt
     }
 }
 
@@ -504,6 +726,14 @@ pub enum DPNStateCmd<T> {
     GetOtherUserContractStateSlotRange(DPNStateCmdGetOtherUserContractStateSlotRange<T>),
     GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats<T>),
     GetContractLeaf(DPNStateCmdGetContractLeaf<T>),
+    GetGlobalStateRoots(DPNStateCmdGetGlobalStateRoots<T>),
+
+    // IMT key-based state commands
+    SetIMTContractStateValue(DPNStateCmdSetIMTContractStateValue<T>),
+    GetSelfUserCurrentIMTContractStateValue(DPNStateCmdGetSelfUserCurrentIMTContractStateValue<T>),
+    GetSelfUserExternalIMTContractStateValue(DPNStateCmdGetSelfUserExternalIMTContractStateValue<T>),
+    GetOtherUserIMTContractStateValue(DPNStateCmdGetOtherUserIMTContractStateValue<T>),
+    ContainsSelfUserCurrentIMTContractStateValue(DPNStateCmdContainsSelfUserCurrentIMTContractStateValue<T>),
 }
 impl<T> DPNStateCmd<T> {
     pub fn set_contract_state_slot_hash(condition: T, slot_index: T, value: [T; 4]) -> Self {
@@ -612,6 +842,62 @@ impl<T> DPNStateCmd<T> {
     pub fn get_contract_leaf(contract_id: T) -> Self {
         DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf::<T>::new(contract_id))
     }
+    pub fn get_global_state_roots(checkpoint_id: T) -> Self {
+        DPNStateCmd::GetGlobalStateRoots(DPNStateCmdGetGlobalStateRoots::<T>::new(checkpoint_id))
+    }
+
+    // IMT factory methods
+    pub fn set_imt_contract_state_value(condition: T, base_offset: T, capacity: T, key: [T; 4], value: [T; 4]) -> Self {
+        DPNStateCmd::SetIMTContractStateValue(DPNStateCmdSetIMTContractStateValue {
+            condition,
+            base_offset,
+            capacity,
+            key,
+            value,
+        })
+    }
+    pub fn get_self_user_current_imt_contract_state_value(base_offset: T, capacity: T, key: [T; 4]) -> Self {
+        DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(DPNStateCmdGetSelfUserCurrentIMTContractStateValue::<T>::new(
+            base_offset, capacity, key,
+        ))
+    }
+    pub fn get_self_user_external_imt_contract_state_value(
+        contract_id: T,
+        contract_state_tree_height: u8,
+        base_offset: T,
+        capacity: T,
+        key: [T; 4],
+    ) -> Self {
+        DPNStateCmd::GetSelfUserExternalIMTContractStateValue(DPNStateCmdGetSelfUserExternalIMTContractStateValue::<T>::new(
+            contract_id,
+            contract_state_tree_height,
+            base_offset,
+            capacity,
+            key,
+        ))
+    }
+    pub fn get_other_user_imt_contract_state_value(
+        user_id: T,
+        contract_id: T,
+        contract_state_tree_height: u8,
+        base_offset: T,
+        capacity: T,
+        key: [T; 4],
+    ) -> Self {
+        DPNStateCmd::GetOtherUserIMTContractStateValue(DPNStateCmdGetOtherUserIMTContractStateValue::<T>::new(
+            user_id,
+            contract_id,
+            contract_state_tree_height,
+            base_offset,
+            capacity,
+            key,
+        ))
+    }
+    pub fn contains_self_user_current_imt_contract_state_value(base_offset: T, capacity: T, key: [T; 4]) -> Self {
+        DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(
+            DPNStateCmdContainsSelfUserCurrentIMTContractStateValue::<T>::new(base_offset, capacity, key),
+        )
+    }
 }
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
     fn get_inputs(&self) -> Vec<T> {
@@ -633,6 +919,12 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_inputs(),
             DPNStateCmd::GetCheckpointLeafStats(c) => c.get_inputs(),
             DPNStateCmd::GetContractLeaf(c) => c.get_inputs(),
+            DPNStateCmd::GetGlobalStateRoots(c) => c.get_inputs(),
+            DPNStateCmd::SetIMTContractStateValue(c) => c.get_inputs(),
+            DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(c) => c.get_inputs(),
+            DPNStateCmd::GetSelfUserExternalIMTContractStateValue(c) => c.get_inputs(),
+            DPNStateCmd::GetOtherUserIMTContractStateValue(c) => c.get_inputs(),
+            DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(c) => c.get_inputs(),
         }
     }
 
@@ -655,6 +947,12 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_state_command_type(),
             DPNStateCmd::GetCheckpointLeafStats(c) => c.get_state_command_type(),
             DPNStateCmd::GetContractLeaf(c) => c.get_state_command_type(),
+            DPNStateCmd::GetGlobalStateRoots(c) => c.get_state_command_type(),
+            DPNStateCmd::SetIMTContractStateValue(c) => c.get_state_command_type(),
+            DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(c) => c.get_state_command_type(),
+            DPNStateCmd::GetSelfUserExternalIMTContractStateValue(c) => c.get_state_command_type(),
+            DPNStateCmd::GetOtherUserIMTContractStateValue(c) => c.get_state_command_type(),
+            DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(c) => c.get_state_command_type(),
         }
     }
 
@@ -677,6 +975,12 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_output_felt_size(),
             DPNStateCmd::GetCheckpointLeafStats(c) => c.get_output_felt_size(),
             DPNStateCmd::GetContractLeaf(c) => c.get_output_felt_size(),
+            DPNStateCmd::GetGlobalStateRoots(c) => c.get_output_felt_size(),
+            DPNStateCmd::SetIMTContractStateValue(c) => c.get_output_felt_size(),
+            DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(c) => c.get_output_felt_size(),
+            DPNStateCmd::GetSelfUserExternalIMTContractStateValue(c) => c.get_output_felt_size(),
+            DPNStateCmd::GetOtherUserIMTContractStateValue(c) => c.get_output_felt_size(),
+            DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(c) => c.get_output_felt_size(),
         }
     }
 }
@@ -778,6 +1082,53 @@ impl<F: ContextFelt> ToFelts<F> for DPNStateCmd<u64> {
             }
             DPNStateCmd::GetContractLeaf(cmd) => {
                 out.push(F::cns(cmd.contract_id));
+            }
+            DPNStateCmd::GetGlobalStateRoots(cmd) => {
+                out.push(F::cns(cmd.checkpoint_id));
+            }
+            DPNStateCmd::SetIMTContractStateValue(cmd) => {
+                out.push(F::cns(cmd.condition));
+                out.push(F::cns(cmd.base_offset));
+                out.push(F::cns(cmd.capacity));
+                for v in &cmd.key {
+                    out.push(F::cns(*v));
+                }
+                for v in &cmd.value {
+                    out.push(F::cns(*v));
+                }
+            }
+            DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(cmd) => {
+                out.push(F::cns(cmd.base_offset));
+                out.push(F::cns(cmd.capacity));
+                for v in &cmd.key {
+                    out.push(F::cns(*v));
+                }
+            }
+            DPNStateCmd::GetSelfUserExternalIMTContractStateValue(cmd) => {
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.base_offset));
+                out.push(F::cns(cmd.capacity));
+                for v in &cmd.key {
+                    out.push(F::cns(*v));
+                }
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::GetOtherUserIMTContractStateValue(cmd) => {
+                out.push(F::cns(cmd.user_id));
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.base_offset));
+                out.push(F::cns(cmd.capacity));
+                for v in &cmd.key {
+                    out.push(F::cns(*v));
+                }
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(cmd) => {
+                out.push(F::cns(cmd.base_offset));
+                out.push(F::cns(cmd.capacity));
+                for v in &cmd.key {
+                    out.push(F::cns(*v));
+                }
             }
         }
         out
@@ -976,6 +1327,90 @@ impl<F: ContextFelt> ToFelts<F> for DPNStateCmd<u64> {
                 let contract_id = take(felts, &mut idx);
                 DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf::new(contract_id))
             }
+            DPNStateCommandType::GetGlobalStateRoots => {
+                let checkpoint_id = take(felts, &mut idx);
+                DPNStateCmd::GetGlobalStateRoots(DPNStateCmdGetGlobalStateRoots::new(checkpoint_id))
+            }
+            DPNStateCommandType::SetIMTContractStateValue => {
+                let condition = take(felts, &mut idx);
+                let base_offset = take(felts, &mut idx);
+                let capacity = take(felts, &mut idx);
+                let mut key = [0u64; 4];
+                for item in &mut key {
+                    *item = take(felts, &mut idx);
+                }
+                let mut value = [0u64; 4];
+                for item in &mut value {
+                    *item = take(felts, &mut idx);
+                }
+                DPNStateCmd::SetIMTContractStateValue(DPNStateCmdSetIMTContractStateValue {
+                    condition,
+                    base_offset,
+                    capacity,
+                    key,
+                    value,
+                })
+            }
+            DPNStateCommandType::GetSelfUserCurrentIMTContractStateValue => {
+                let base_offset = take(felts, &mut idx);
+                let capacity = take(felts, &mut idx);
+                let mut key = [0u64; 4];
+                for item in &mut key {
+                    *item = take(felts, &mut idx);
+                }
+                DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(DPNStateCmdGetSelfUserCurrentIMTContractStateValue::new(
+                    base_offset,
+                    capacity,
+                    key,
+                ))
+            }
+            DPNStateCommandType::GetSelfUserExternalIMTContractStateValue => {
+                let contract_id = take(felts, &mut idx);
+                let base_offset = take(felts, &mut idx);
+                let capacity = take(felts, &mut idx);
+                let mut key = [0u64; 4];
+                for item in &mut key {
+                    *item = take(felts, &mut idx);
+                }
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetSelfUserExternalIMTContractStateValue(DPNStateCmdGetSelfUserExternalIMTContractStateValue::new(
+                    contract_id,
+                    height,
+                    base_offset,
+                    capacity,
+                    key,
+                ))
+            }
+            DPNStateCommandType::GetOtherUserIMTContractStateValue => {
+                let user_id = take(felts, &mut idx);
+                let contract_id = take(felts, &mut idx);
+                let base_offset = take(felts, &mut idx);
+                let capacity = take(felts, &mut idx);
+                let mut key = [0u64; 4];
+                for item in &mut key {
+                    *item = take(felts, &mut idx);
+                }
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetOtherUserIMTContractStateValue(DPNStateCmdGetOtherUserIMTContractStateValue::new(
+                    user_id,
+                    contract_id,
+                    height,
+                    base_offset,
+                    capacity,
+                    key,
+                ))
+            }
+            DPNStateCommandType::ContainsSelfUserCurrentIMTContractStateValue => {
+                let base_offset = take(felts, &mut idx);
+                let capacity = take(felts, &mut idx);
+                let mut key = [0u64; 4];
+                for item in &mut key {
+                    *item = take(felts, &mut idx);
+                }
+                DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(
+                    DPNStateCmdContainsSelfUserCurrentIMTContractStateValue::new(base_offset, capacity, key),
+                )
+            }
         }
     }
 }
@@ -1068,6 +1503,53 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                 DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::<u64>::new(inputs_as_u64[0]))
             }
             DPNStateCmd::GetContractLeaf(_c) => DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf::<u64>::new(inputs_as_u64[0])),
+            DPNStateCmd::GetGlobalStateRoots(_c) => {
+                DPNStateCmd::GetGlobalStateRoots(DPNStateCmdGetGlobalStateRoots::<u64>::new(inputs_as_u64[0]))
+            }
+            DPNStateCmd::SetIMTContractStateValue(_c) => {
+                DPNStateCmd::SetIMTContractStateValue(DPNStateCmdSetIMTContractStateValue {
+                    condition: inputs_as_u64[0],
+                    base_offset: inputs_as_u64[1],
+                    capacity: inputs_as_u64[2],
+                    key: [inputs_as_u64[3], inputs_as_u64[4], inputs_as_u64[5], inputs_as_u64[6]],
+                    value: [inputs_as_u64[7], inputs_as_u64[8], inputs_as_u64[9], inputs_as_u64[10]],
+                })
+            }
+            DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(_c) => {
+                DPNStateCmd::GetSelfUserCurrentIMTContractStateValue(DPNStateCmdGetSelfUserCurrentIMTContractStateValue::<u64>::new(
+                    inputs_as_u64[0],
+                    inputs_as_u64[1],
+                    [inputs_as_u64[2], inputs_as_u64[3], inputs_as_u64[4], inputs_as_u64[5]],
+                ))
+            }
+            DPNStateCmd::GetSelfUserExternalIMTContractStateValue(c) => {
+                DPNStateCmd::GetSelfUserExternalIMTContractStateValue(DPNStateCmdGetSelfUserExternalIMTContractStateValue::<u64>::new(
+                    inputs_as_u64[0],
+                    c.contract_state_tree_height,
+                    inputs_as_u64[1],
+                    inputs_as_u64[2],
+                    [inputs_as_u64[3], inputs_as_u64[4], inputs_as_u64[5], inputs_as_u64[6]],
+                ))
+            }
+            DPNStateCmd::GetOtherUserIMTContractStateValue(c) => {
+                DPNStateCmd::GetOtherUserIMTContractStateValue(DPNStateCmdGetOtherUserIMTContractStateValue::<u64>::new(
+                    inputs_as_u64[0],
+                    inputs_as_u64[1],
+                    c.contract_state_tree_height,
+                    inputs_as_u64[2],
+                    inputs_as_u64[3],
+                    [inputs_as_u64[4], inputs_as_u64[5], inputs_as_u64[6], inputs_as_u64[7]],
+                ))
+            }
+            DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(_c) => {
+                DPNStateCmd::ContainsSelfUserCurrentIMTContractStateValue(
+                    DPNStateCmdContainsSelfUserCurrentIMTContractStateValue::<u64>::new(
+                        inputs_as_u64[0],
+                        inputs_as_u64[1],
+                        [inputs_as_u64[2], inputs_as_u64[3], inputs_as_u64[4], inputs_as_u64[5]],
+                    ),
+                )
+            }
         }
     }
 }
