@@ -2,6 +2,8 @@ pub mod local;
 pub mod session;
 pub mod signature;
 pub mod wallet;
+#[cfg(not(target_arch = "wasm32"))]
+mod rpc_security;
 
 use psy_config::PSY_NETWORK_MAGIC;
 
@@ -26,16 +28,21 @@ pub async fn run_server(args: psy_common::args::ProverArgs) -> anyhow::Result<()
         session::WalletSession,
     };
 
+    let authorization = rpc_security::wallet_authorization(&args.api_key)?;
     let api_key = Hash256::from_hex_string(&args.api_key)?;
+    anyhow::ensure!(api_key != Hash256::ZERO, "prover API key must not be zero");
     let _encryption_helper = SimpleZeroPadEncryptionHelper::new(api_key);
 
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new().layer(HealthLayer).layer(cors_opts);
+    let cors = tower::ServiceBuilder::new()
+        .layer(HealthLayer)
+        .layer(cors_opts)
+        .layer(authorization);
 
-    let server_addr: SocketAddr = args.listen_addr.parse()?;
+    let server_addr: SocketAddr = rpc_security::loopback_listen_addr(&args.listen_addr)?;
     tracing::info!("Starting user prover server at {}", server_addr);
 
     let server = Server::builder().set_http_middleware(cors).build(server_addr).await?;
@@ -62,15 +69,20 @@ pub async fn run_prove_proxy_server(args: psy_common::args::ProveProxyArgs) -> a
 
     use crate::local::native::prove_proxy::ProveProxyRpcServer;
 
+    let server_addr: SocketAddr = rpc_security::loopback_listen_addr(&args.listen_addr)?;
+    let authorization = rpc_security::wallet_authorization(&args.api_key)?;
     let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
     let rpc_config = psy_config.get_current_network()?;
     let prove_proxy = ProveProxyServerProvider::new_with_config(rpc_config.clone(), PSY_NETWORK_MAGIC).await?;
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
-        .allow_origin(Any)
+        // Local proof requests may contain private signing material.
+        .allow_origin(Vec::<hyper::header::HeaderValue>::new())
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new().layer(HealthLayer).layer(cors_opts);
-    let server_addr: SocketAddr = args.listen_addr.parse()?;
+    let cors = tower::ServiceBuilder::new()
+        .layer(HealthLayer)
+        .layer(cors_opts)
+        .layer(authorization);
     tracing::info!("Starting prove proxy server at {}", server_addr);
     let server = Server::builder().set_http_middleware(cors).build(server_addr).await?;
 
